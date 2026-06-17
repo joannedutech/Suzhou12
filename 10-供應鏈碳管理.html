@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IWA 数字能碳管理 - 供应链碳管理</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        /* =========================================
+           1. 核心设计变数 (Design Tokens — 对齐 Figma Web Dark)
+        ========================================= */
+        :root {
+            /* 基础背景 */
+            --color-bgBase:        #212831;
+            --color-bgPanel:       #2C333C;
+            --color-bgHover:       rgba(255, 255, 255, 0.05);
+            --color-bg-menu-lv1:   #283A51;
+            --color-bg-menu-lv2:   #1D2C40;
+            --color-bg-menu-lv3:   #0D1F36;
+            --color-bg-chart-info: #313234;
+            --color-bg-alarm:      #2C3744;
+
+            /* 品牌色 */
+            --color-accentPrimary: #F8B62D;
+            --color-accentHover:   #fac84a;
+            --color-brand-blue:    #2A4464;
+            --color-indicator:     #00B0FF;
+
+            /* 文字色 */
+            --color-textMain:    #ffffff;
+            --color-textSub:     rgba(255, 255, 255, 0.70);
+            --color-textMuted:   rgba(255, 255, 255, 0.50);
+            --color-text-picker: rgba(255, 255, 255, 0.30);
+            --color-text-header: rgba(255, 255, 255, 0.80);
+            --color-text-menu:   #404852;
+            --color-divider:     rgba(255, 255, 255, 0.10);
+
+            /* 状态色 */
+            --color-statusHigh:   #FF2D55;
+            --color-statusWarn:   #F1DE75;
+            --color-statusNormal: #5CC736;
+            --color-dv-orange:    #FE865A;
+
+            /* 功能语意色（能源类型） */
+            --color-value-electricity: #A6FFB2;
+            --color-value-hvac:        #8AC1FF;
+            --color-value-sensor:      #D65486;
+            --color-value-light:       #FFF159;
+            --color-value-access:      #9A86F0;
+
+            /* Input 状态 */
+            --color-input-hover-bg:      rgba(255, 255, 255, 0.05);
+            --color-input-select-yellow: rgba(248, 182, 45, 0.20);
+            --color-input-select-blue:   rgba(0, 176, 255, 0.20);
+            --color-input-error-bg:      rgba(255, 45, 85, 0.20);
+
+            /* White 透明阶 */
+            --color-white-5:   rgba(255,255,255,0.05);
+            --color-white-15:  rgba(255,255,255,0.15);
+            --color-white-30:  rgba(255,255,255,0.30);
+            --color-white-50:  rgba(255,255,255,0.50);
+            --color-white-70:  rgba(255,255,255,0.70);
+            --color-white-80:  rgba(255,255,255,0.80);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--color-bgBase);
+            color: var(--color-textSub);
+            font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+            font-size: 16px;
+            font-weight: 400;
+            letter-spacing: 0.04em;
+            overflow: hidden;
+        }
+
+        /* Typography 工具类别（对齐设计系统 type-* tokens） */
+        .type-display-l { font-size: 40px; font-weight: 600; letter-spacing: 0.02em; }
+        .type-display-m { font-size: 35px; font-weight: 600; letter-spacing: 0.02em; }
+        .type-display-s { font-size: 30px; font-weight: 600; letter-spacing: 0.02em; }
+        .type-title-xl  { font-size: 28px; font-weight: 500; letter-spacing: 0.06em; }
+        .type-title-l   { font-size: 24px; font-weight: 500; letter-spacing: 0.06em; }
+        .type-title-m   { font-size: 20px; font-weight: 600; letter-spacing: 0.05em; }
+        .type-body-l        { font-size: 20px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-body-m        { font-size: 16px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-body-m-medium { font-size: 16px; font-weight: 500; letter-spacing: 0.04em; }
+        .type-body-m-light  { font-size: 16px; font-weight: 300; letter-spacing: 0.04em; }
+        .type-label-xl { font-size: 16px; font-weight: 600; letter-spacing: 0.04em; }
+        .type-label-l  { font-size: 14px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-label-m  { font-size: 13px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-label-s  { font-size: 12px; font-weight: 500; letter-spacing: 0.04em; }
+        .type-label-xs { font-size: 11px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-caption-l { font-size: 13px; font-weight: 300; letter-spacing: 0.04em; }
+        .type-caption-m { font-size: 12px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-caption-s { font-size: 11px; font-weight: 300; letter-spacing: 0.04em; }
+
+        /* 相容旧 class（逐步替换用） */
+        .text-xs    { font-size: 12px; }
+        .text-sm    { font-size: 13px; }
+        .text-base  { font-size: 16px; }
+        .text-white { color: var(--color-textMain); }
+        .text-sub   { color: var(--color-textSub); }
+        .text-muted { color: var(--color-textMuted); }
+
+        /* =========================================
+           2. 版面结构与容器
+        ========================================= */
+        .layout-wrapper { display: flex; height: 100vh; overflow: hidden; }
+
+        /* --- 侧边栏 --- */
+        .iwa-frontend-sidebar {
+            width: 220px;
+            background-color: #283A51;
+            box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+            transition: transform 300ms ease-in-out, width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding-top: 17px;
+        }
+
+        .brand-area {
+            padding: 0 10px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .brand-logo-text { display: flex; align-items: center; gap: 10px; flex: 1; }
+        .brand-logo {
+            width: 26px; height: 26px;
+            border-radius: 5.91px;
+            border: 0.59px solid white;
+            background: white;
+            flex-shrink: 0;
+        }
+        .brand-text {
+            color: white;
+            font-size: 16px;
+            font-family: "PingFang SC", "Microsoft YaHei", system-ui;
+            font-weight: 400;
+            white-space: nowrap;
+        }
+        .pin-btn {
+            background: rgba(15, 26, 42, 0.80); border: none;
+            cursor: pointer;
+            width: 26px; height: 26px; border-radius: 9999px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: background 150ms ease, color 150ms ease;
+        }
+        .pin-btn.active { color: #00B0FF; }
+        .pin-btn:not(.active) { color: #a9a9a9; }
+        .pin-btn:hover { background: rgba(15, 26, 42, 1); color: #9adfff; }
+        .pin-btn.active .pin-svg--pin   { display: block; }
+        .pin-btn.active .pin-svg--unpin { display: none; }
+        .pin-btn:not(.active) .pin-svg--pin   { display: none; }
+        .pin-btn:not(.active) .pin-svg--unpin { display: block; }
+
+        .filter-area { padding: 0 10px; }
+        .filter-btn {
+            width: 100%; height: 30px; border-radius: 38px;
+            border: 0.5px solid rgba(255, 255, 255, 0.70);
+            background: #20324A;
+            color: rgba(255, 255, 255, 0.50);
+            display: flex; align-items: center;
+            justify-content: center; gap: 10px; cursor: pointer;
+            font-family: "PingFang SC", "Microsoft YaHei", system-ui;
+            font-size: 16px; font-weight: 400;
+            transition: all 150ms ease-in-out;
+        }
+        .filter-btn:hover { border-color: var(--color-accentPrimary); color: var(--color-accentPrimary); }
+
+        .menu-list { list-style: none; flex: 1; overflow-y: auto; padding-right: 5px; }
+        .menu-item {
+            height: 42px;
+            padding: 10px 10px 10px 25px;
+            display: flex; align-items: center; cursor: pointer;
+            position: relative; color: white;
+            font-family: "PingFang SC", "Microsoft YaHei", system-ui;
+            font-size: 16px; font-weight: 400;
+            border-radius: 5px;
+            transition: background 150ms ease-in-out;
+        }
+        .menu-item .icon-wrap { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 5px; overflow: hidden; }
+        .menu-item .icon-wrap i { transition: color 150ms ease; }
+        .menu-item .text { flex: 1; white-space: nowrap; }
+        .menu-item::before {
+            content: ''; position: absolute; left: 0; top: 5px; bottom: 5px;
+            width: 3px; background-color: var(--color-accentPrimary);
+            border-radius: 0 4px 3px 0;
+            opacity: 0; transition: opacity 150ms ease-in-out;
+        }
+        .menu-item:hover { background-color: transparent; }
+        .menu-item:hover::before { opacity: 0; }
+        .menu-item.active { color: var(--color-accentPrimary); font-weight: 400; }
+        .menu-item.active::before { opacity: 1; }
+        .menu-item.active .icon-wrap i { color: var(--color-accentPrimary); }
+
+        .iwa-frontend-sidebar.mini { width: 64px; padding-top: 17px; gap: 16px; }
+        .iwa-frontend-sidebar.mini .brand-text,
+        .iwa-frontend-sidebar.mini .menu-item .text,
+        .iwa-frontend-sidebar.mini .menu-item .arrow,
+        .iwa-frontend-sidebar.mini .filter-btn span { display: none !important; }
+        .iwa-frontend-sidebar.mini .menu-item { justify-content: center; padding: 0; }
+        .iwa-frontend-sidebar.mini .menu-item .icon-wrap { margin-right: 0; }
+        .iwa-frontend-sidebar.mini .filter-btn { width: 32px; padding: 0; margin: 0 auto; }
+        .iwa-frontend-sidebar.mini .brand-area { justify-content: center; padding: 0; }
+        .iwa-frontend-sidebar.mini .brand-logo-text { flex: 0 0 auto; }
+        .iwa-frontend-sidebar.mini .pin-btn { display: none; }
+
+        /* 次选单面板 */
+        .submenu-panel {
+            position: absolute; left: 100%; top: 0;
+            width: 220px; height: 100vh;
+            background-color: #1D2C40;
+            transform: translateX(-20px); opacity: 0;
+            pointer-events: none;
+            transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 99; display: flex; flex-direction: column;
+            padding-top: 17px; gap: 8px;
+        }
+        .submenu-panel.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+        .submenu-header {
+            height: 26px; padding: 0 10px;
+            display: flex; align-items: center; justify-content: flex-end;
+        }
+        .submenu-panel .menu-item { padding-left: 25px; }
+        .submenu-panel .menu-item:hover { background-color: rgba(0, 176, 255, 0.10); }
+        .submenu-panel .menu-item.active {
+            color: var(--color-accentPrimary);
+            background-color: rgba(0, 176, 255, 0.20);
+        }
+        .submenu-panel .menu-item.active::before { opacity: 1; }
+
+        /* 顶部工具列 */
+        .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .iwa-frontend-header {
+            height: 60px; background-color: var(--color-bgBase);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            transition: transform 300ms ease-in-out, opacity 300ms ease-in-out, height 300ms ease-in-out;
+        }
+        .breadcrumb { color: var(--color-textSub); font-size: 14px; font-weight: 400; }
+        .header-controls { display: flex; align-items: center; gap: 16px; }
+        .header-icon { color: var(--color-textSub); cursor: pointer; font-size: 16px; transition: color 150ms ease-in-out; }
+        .header-icon:hover { color: #ffffff; }
+        .header-divider { height: 24px; border-left: 1px solid rgba(255,255,255,0.15); margin: 0 8px; }
+        .brand-time { display: flex; align-items: center; gap: 12px; }
+        .time-text { display: flex; flex-direction: column; align-items: flex-end; }
+
+        /* 主内容区 */
+        .content-wrapper {
+            flex: 1; padding: 16px 24px 24px 24px;
+            overflow-y: auto; display: flex; flex-direction: column; gap: 24px;
+        }
+        .content-wrapper::-webkit-scrollbar { width: 6px; }
+        .content-wrapper::-webkit-scrollbar-track { background: transparent; }
+        .content-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+        .content-wrapper::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+        body.is-fullscreen .iwa-frontend-sidebar { transform: translateX(-100%); width: 0; opacity: 0; pointer-events: none; }
+        body.is-fullscreen .iwa-frontend-header { transform: translateY(-100%); height: 0; opacity: 0; pointer-events: none; }
+
+        /* =========================================
+           3. 卡片基础
+        ========================================= */
+        .iwa-frontend-card {
+            background-color: var(--color-bgPanel);
+            border-radius: 10px;
+            padding: 20px;
+            gap: 20px;
+            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.50);
+            position: relative;
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .card-title { color: var(--color-textMain); font-size: 16px; font-weight: 400; }
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        /* =========================================
+           4. 模组区块标题 (Module Section)
+        ========================================= */
+        .module-section { display: flex; flex-direction: column; gap: 16px; padding-top: 10px; padding-bottom: 10px; }
+
+        .module-section-header {
+            display: flex; align-items: center; gap: 14px;
+            padding-bottom: 12px;
+            /* border-bottom: 1px solid rgba(255,255,255,0.07); */
+        }
+        .module-num {
+            width: 28px; height: 28px; border-radius: 8px;
+            background: transparent;
+            border: 1px solid rgba(241, 222, 117, 0.50);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--color-statusWarn); font-size: 16px; font-weight: 600;
+            flex-shrink: 0;
+        }
+        .module-title { color: var(--color-textMain); font-size: 28px; font-weight: 500; letter-spacing: 0.06em; }
+        .module-desc { color: var(--color-textMuted); font-size: 14px; font-weight: 400; margin-left: 2px; letter-spacing: 0.04em; }
+
+        /* =========================================
+           共用进度条 + grid helpers
+        ========================================= */
+        .progress-bar-bg { background: rgba(255,255,255,0.08); border-radius: 4px; height: 7px; overflow: hidden; flex: 1; min-width: 60px; }
+        .progress-bar-fill { height: 100%; border-radius: 4px; background: var(--color-accentPrimary); }
+        .progress-container { margin-top: 10px; width: 100%; }
+        .progress-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: 400; color: var(--color-textMuted); margin-top: 4px; }
+
+        .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-kpi4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+        /* 表格 */
+        .iwa-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .iwa-table th { padding: 10px 8px; font-size: 14px; color: var(--color-textMuted); border-bottom: 1px solid var(--color-divider); font-weight: 500; }
+        .iwa-table td { padding: 10px 8px; font-size: 14px; border-bottom: 1px solid var(--color-divider); color: var(--color-textMain); vertical-align: middle; }
+        .iwa-table tr:hover { background: var(--color-bgHover); }
+
+        /* 星等 */
+        .star-high { color: var(--color-accentPrimary); font-size: 12px; }
+        .star-low  { color: var(--color-textMuted);     font-size: 12px; }
+
+        /* Input 栏位（对齐 Design System pill-input） */
+        .pill-input { height: 30px; background: transparent; border: 1px solid rgba(255,255,255,0.50); border-radius: 15px; padding: 5px 15px; color: var(--color-textMain); font-size: 16px; font-weight: 400; font-family: "PingFang SC","Microsoft YaHei",system-ui; }
+        .pill-input::placeholder { color: var(--color-textMuted); }
+        .pill-input:focus { outline: none; border-color: var(--color-accentPrimary); }
+
+        /* 可展开搜索框 */
+        /* Design System Tooltip */
+        [data-tooltip] { position: relative; }
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1b2531;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 400;
+            font-family: "PingFang SC","Microsoft YaHei",system-ui;
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.40);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 150ms;
+            z-index: 999;
+        }
+        [data-tooltip]:hover::after { opacity: 1; }
+
+        /* 可展开搜索框：icon 固定右侧，input 从右往左展开 */
+        .search-toggle { position: relative; display: flex; align-items: center; justify-content: flex-end; }
+        .search-icon-btn { background: transparent; border: none; color: var(--color-textSub); cursor: pointer; padding: 0 8px; border-radius: 4px; transition: color 150ms; position: relative; z-index: 2; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .search-icon-btn:hover, .search-toggle.open .search-icon-btn { color: var(--color-accentPrimary); }
+        .search-expand { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 0; opacity: 0; padding: 0; border-width: 0; pointer-events: none; transition: width 250ms ease, opacity 180ms ease, padding 250ms ease, border-width 0ms 200ms; }
+        .search-toggle.open .search-expand { width: 280px; opacity: 1; padding: 5px 36px 5px 15px; border-width: 1px; pointer-events: auto; transition: width 250ms ease, opacity 180ms ease, padding 250ms ease; }
+
+        /* 表格卷动容器：强制显示卷轴 */
+        .table-scroll { overflow-y: scroll; max-height: 280px; }
+        .table-scroll::-webkit-scrollbar { width: 6px; }
+        .table-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 3px; }
+        .table-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.20); border-radius: 3px; }
+        .table-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+
+        /* 状态徽章（DS 标准） */
+        .badge        { display:inline-block; padding:2px 8px; border-radius:4px; font-size:12px; }
+        .sbadge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 400; border: 1px solid transparent; }
+        .sbadge-red    { background: rgba(255,45,85,0.15);    color: var(--color-statusHigh);    border-color: rgba(255,45,85,0.3); }
+        .sbadge-orange { background: rgba(241,222,117,0.15);  color: var(--color-statusWarn);    border-color: rgba(241,222,117,0.3); }
+        .sbadge-green  { background: rgba(92,199,54,0.15);    color: var(--color-statusNormal);  border-color: rgba(92,199,54,0.3); }
+        .sbadge-blue   { background: rgba(0,176,255,0.15);    color: var(--color-indicator);     border-color: rgba(0,176,255,0.3); }
+        .sbadge-yellow { background: rgba(248,182,45,0.15);   color: var(--color-accentPrimary); border-color: rgba(248,182,45,0.3); }
+        .badge-down   { border:1px solid rgba(92,199,54,0.3);   background:rgba(92,199,54,0.15);   color:var(--color-statusNormal); }
+        .badge-up     { border:1px solid rgba(255,45,85,0.3);   background:rgba(255,45,85,0.15);   color:var(--color-statusHigh);   }
+        .badge-warn   { border:1px solid rgba(241,222,117,0.3); background:rgba(241,222,117,0.15); color:var(--color-statusWarn);   }
+
+        /* KPI 卡（DS 标准） */
+        .kpi-card { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+        .kpi-label { font-size: 14px; font-weight: 400; color: var(--color-textSub); width: 100%; }
+        .kpi-value-row { min-height: 36px; display: flex; align-items: baseline; width: 100%; }
+        .kpi-num { font-size: 30px; font-weight: 600; color: var(--color-textMain); line-height: 1; }
+        .kpi-unit { font-size: 12px; font-weight: 500; color: var(--color-textSub); margin-left: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="layout-wrapper">
+
+    <!-- ==================== SIDEBAR ==================== -->
+    <nav class="iwa-frontend-sidebar mini" id="mainSidebar">
+        <div class="brand-area">
+            <div class="brand-logo-text">
+                <div class="brand-logo">SU</div>
+                <span class="type-body-m text-white brand-text">群电苏州厂</span>
+            </div>
+            <button class="pin-btn active" id="sidebarPinBtn">
+                <svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/>
+                </svg>
+                <svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/>
+                </svg>
+            </button>
+        </div>
+
+        <ul class="menu-list inner-scroll-container">
+            <a href="index.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="dashboard">
+                    <div class="icon-wrap"><i class="fa-solid fa-chart-pie"></i></div>
+                    <span class="text">全厂总览</span>
+                </li>
+            </a>
+            <a href="energy-monitor.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-energy">
+                    <div class="icon-wrap"><i class="fa-solid fa-bolt"></i></div>
+                    <span class="text">能源智慧监测</span>
+                </li>
+            </a>
+            <a href="efficiency-opt.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-efficiency">
+                    <div class="icon-wrap"><i class="fa-solid fa-leaf"></i></div>
+                    <span class="text">能效诊断与优化</span>
+                </li>
+            </a>
+            <a href="carbon-mgmt.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-carbon">
+                    <div class="icon-wrap"><i class="fa-solid fa-cloud"></i></div>
+                    <span class="text">碳排放管理与核算</span>
+                </li>
+            </a>
+            <a href="supply-chain.html" style="text-decoration: none;">
+                <li class="menu-item active" data-target="panel-supply">
+                    <div class="icon-wrap"><i class="fa-solid fa-link"></i></div>
+                    <span class="text">价值链与资产运营</span>
+                </li>
+            </a>
+        </ul>
+
+        <!-- 能源智慧监测 次选单 -->
+        <div class="submenu-panel" id="panel-energy" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="energy-query.html" style="text-decoration: none;"><li class="menu-item"><span class="text">① 能耗查询</span></li></a>
+                <a href="energy-intensity.html" style="text-decoration: none;"><li class="menu-item"><span class="text">② 能源消费量与强度计算</span></li></a>
+                <a href="energy-flow.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑤ 能流分析</span></li></a>
+            </ul>
+        </div>
+        <!-- 能效诊断与优化 次选单 -->
+        <div class="submenu-panel" id="panel-efficiency" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="efficiency-analysis.html" style="text-decoration: none;"><li class="menu-item"><span class="text">③ 消费分析与策略推荐</span></li></a>
+                <a href="efficiency-benchmark.html" style="text-decoration: none;"><li class="menu-item"><span class="text">④ 能效对标</span></li></a>
+                <a href="efficiency-balance.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑥ 能效平衡与优化</span></li></a>
+            </ul>
+        </div>
+        <!-- 碳排放管理与核算 次选单 -->
+        <div class="submenu-panel" id="panel-carbon" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="carbon-budget.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑦ 用能与碳排放预算管理</span></li></a>
+                <a href="carbon-accounting.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑧ 碳排放核算</span></li></a>
+                <a href="product-footprint.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑨ 碳足迹核算</span></li></a>
+            </ul>
+        </div>
+        <!-- 价值链与资产运营 次选单 -->
+        <div class="submenu-panel" id="panel-supply" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="10-供应链碳管理.html" style="text-decoration: none;"><li class="menu-item active"><span class="text">⑩ 供应链碳管理</span></li></a>
+                <a href="carbon-audit.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑪ 碳核查支撑</span></li></a>
+                <a href="carbon-assets.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑫ 碳资产管理</span></li></a>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- ==================== MAIN ==================== -->
+    <main class="main-area">
+        <header class="iwa-frontend-header">
+            <div class="breadcrumb">数字能碳管理中心 / 供应链碳管理</div>
+            <div class="header-controls">
+                <i class="fa-solid fa-moon header-icon"></i>
+                <i class="fa-solid fa-expand header-icon" id="btn-fullscreen"></i>
+                <i class="fa-regular fa-bell header-icon"></i>
+                <i class="fa-solid fa-border-all header-icon"></i>
+                <div style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <i class="fa-regular fa-user header-icon"></i>
+                    <span class="type-label-m">Admin User</span>
+                </div>
+                <div class="header-divider"></div>
+                <div class="brand-time">
+                    <div class="brand-logo" style="width:24px; height:24px; font-size:10px;">IWA</div>
+                    <div class="time-text">
+                        <span class="type-label-m text-white" style="font-weight:600;">IWA</span>
+                        <span class="type-caption-m" id="realtime-clock"></span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="content-wrapper" id="contentWrapper">
+
+            <!-- =============================================
+                 BLOCK 10：供应链碳管理
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">10</div>
+                    <span class="module-title">供应链碳管理</span>
+                    <!-- <span class="module-desc">2026 年度一阶供应商 Tier-1 × 数据填报率 × 高碳排辨识 × 稽核清单</span> -->
+                </div>
+
+                <div class="grid-kpi4">
+                    <div class="iwa-frontend-card kpi-card">
+                        <div class="kpi-label">供应链风险预警 (稽核未达标准)</div>
+                        <div class="kpi-value-row">
+                            <span class="kpi-num" style="color:var(--color-statusHigh);">42</span>
+                            <span class="kpi-unit">家</span>
+                        </div>
+                        <div class="type-caption-m" style="color:var(--color-statusHigh);">分数过低或资料未提交</div>
+                    </div>
+                    <div class="iwa-frontend-card kpi-card">
+                        <div class="kpi-label">年度数据填报率</div>
+                        <div class="kpi-value-row">
+                            <span class="kpi-num">74.2</span>
+                            <span class="kpi-unit">%</span>
+                        </div>
+                        <div class="progress-container">
+                            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:74.2%;background:var(--color-statusNormal);"></div></div>
+                            <div class="progress-labels"><span>95 家已缴交</span><span>33 家未填报</span></div>
+                        </div>
+                    </div>
+                    <div class="iwa-frontend-card kpi-card">
+                        <div class="kpi-label">供应链总体通报碳排</div>
+                        <div class="kpi-value-row">
+                            <span class="kpi-num">312,500</span>
+                            <span class="kpi-unit">tCO₂e</span>
+                        </div>
+                        <div class="type-caption-m text-sub">占全厂碳排比例约 <span>18.5%</span></div>
+                    </div>
+                    <div class="iwa-frontend-card kpi-card">
+                        <div class="kpi-label">纳管一阶供应商总数</div>
+                        <div class="kpi-value-row">
+                            <span class="kpi-num">128</span>
+                            <span class="kpi-unit">家</span>
+                        </div>
+                        <div class="type-caption-m text-sub">合计采购金额: $456,000 元</div>
+                    </div>
+                </div>
+
+                <div class="grid-2col">
+                    <div class="iwa-frontend-card">
+                        <div class="card-header"><div class="card-title">Top 5 高碳排供应商 (需辅导降碳) </div></div>
+                        <div id="supplierBarChart" style="height:220px;"></div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="card-header"><div class="card-title">年度供应商审核状态</div></div>
+                        <div style="display:flex; flex-direction:column; gap:12px; padding-top:4px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span class="legend-dot" style="background:var(--color-statusNormal);"></span>
+                                    <span class="type-label-l text-sub">审核通过</span>
+                                </div>
+                                <span class="type-title-l text-white">65 <span class="type-caption-m text-sub">家</span></span>
+                            </div>
+                            <div style="height:1px;background:var(--color-divider);"></div>
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span class="legend-dot" style="background:var(--color-indicator);"></span>
+                                    <span class="type-label-l text-sub">资料评估中</span>
+                                </div>
+                                <span class="type-title-l text-white">21 <span class="type-caption-m text-sub">家</span></span>
+                            </div>
+                            <div style="height:1px;background:var(--color-divider);"></div>
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span class="legend-dot" style="background:var(--color-statusWarn);"></span>
+                                    <span class="type-label-l text-sub">未达标准</span>
+                                </div>
+                                <span class="type-title-l text-white">9 <span class="type-caption-m text-sub">家</span></span>
+                            </div>
+                            <div style="height:1px;background:var(--color-divider);"></div>
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span class="legend-dot" style="background:var(--color-statusHigh);"></span>
+                                    <span class="type-label-l text-sub">逾期未交</span>
+                                </div>
+                                <span class="type-title-l text-white">33 <span class="type-caption-m text-sub">家</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 供应商碳数据采集与稽核清单 -->
+                <div class="iwa-frontend-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                        </i>供应商碳数据采集与稽核清单
+                        </div>
+                        <div class="search-toggle" id="tableSearch">
+                            <input type="text" placeholder="搜索供应商代码/名称" class="pill-input search-expand" id="tableSearchInput">
+                            <button class="search-icon-btn" id="searchToggleBtn" onclick="toggleTableSearch()" data-tooltip="搜索">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M8.92285 1C12.7461 1.00016 15.8456 4.09955 15.8457 7.92285C15.8457 9.76744 15.1223 11.4418 13.9463 12.6826L18.7285 19.1846C18.8919 19.407 18.8444 19.7202 18.6221 19.8838C18.3996 20.0474 18.0865 19.9988 17.9229 19.7764L13.2031 13.3604C12.025 14.2891 10.5396 14.8456 8.92285 14.8457C5.09945 14.8456 2 11.7463 2 7.92285C2.00012 4.09952 5.09952 1.00012 8.92285 1ZM8.92285 2C5.65181 2.00012 3.00012 4.65181 3 7.92285C3 11.194 5.65173 13.8456 8.92285 13.8457C12.1939 13.8455 14.8457 11.194 14.8457 7.92285C14.8456 4.65183 12.1939 2.00016 8.92285 2Z" fill="currentColor"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="iwa-table">
+                            <thead style="position:sticky; top:0; background:var(--color-bgPanel); z-index:1;">
+                                <tr>
+                                    <th>供应商代码 / 名称</th>
+                                    <th>供应类别 (BOM)</th>
+                                    <th>提报碳排量 (tCO₂e)</th>
+                                    <th>数据质量评级 (DQR)</th>
+                                    <th>当前状态</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="font-weight:bold; color:var(--color-textMain);">VND-8801<br><span class="type-caption-m text-muted">台X电路板 (苏州)</span></td>
+                                    <td>PCBA / 印刷电路板</td>
+                                    <td>45,200.5</td>
+                                    <td>
+                                        <i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-low"></i><br>
+                                        <span class="type-caption-m text-muted">去年度交易额: ¥ 45,200,000</span>
+                                    </td>
+                                    <td><span class="sbadge sbadge-green">审核通过</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:bold; color:var(--color-textMain);">VND-3102<br><span class="type-caption-m text-muted">联X半导体</span></td>
+                                    <td>IC 晶片 / 控制器</td>
+                                    <td>82,150.0</td>
+                                    <td>
+                                        <i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-low"></i><i class="fa-solid fa-star star-low"></i><br>
+                                        <span class="type-caption-m text-muted">去年度交易额: ¥ 128,500,000</span>
+                                    </td>
+                                    <td><span class="sbadge sbadge-green">审核通过</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:bold; color:var(--color-statusHigh);">VND-5541<br><span class="type-caption-m text-muted">昆山X精密五金</span></td>
+                                    <td>金属机构件 / 散热片</td>
+                                    <td>18,400.0</td>
+                                    <td>
+                                        <i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-low"></i><i class="fa-solid fa-star star-low"></i><i class="fa-solid fa-star star-low"></i><i class="fa-solid fa-star star-low"></i><br>
+                                        <span class="type-caption-m" style="color:var(--color-statusHigh);">去年度交易额: ¥ 8,400,000</span>
+                                    </td>
+                                    <td><span class="sbadge sbadge-red">未达标准</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:bold; color:var(--color-textMain);">VND-2289<br><span class="type-caption-m text-muted">华X塑胶注塑</span></td>
+                                    <td>塑胶外壳 (Enclosure)</td>
+                                    <td>--</td>
+                                    <td>
+                                        <i class="fa-solid fa-star star-low"></i><i class="fa-solid fa-star star-low"></i><i class="fa-solid fa-star star-low"></i><i class="fa-solid fa-star star-low"></i><i class="fa-solid fa-star star-low"></i><br>
+                                        <span class="type-caption-m text-muted">去年度交易额: ¥ 15,300,000</span>
+                                    </td>
+                                    <td><span class="sbadge sbadge-orange">逾期未交</span></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:bold; color:var(--color-textMain);">VND-7710<br><span class="type-caption-m text-muted">立X精密线缆</span></td>
+                                    <td>连接器与线材 (Cables)</td>
+                                    <td>5,320.8</td>
+                                    <td>
+                                        <i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-high"></i><i class="fa-solid fa-star star-low"></i><br>
+                                        <span class="type-caption-m text-muted">去年度交易额: ¥ 6,250,000</span>
+                                    </td>
+                                    <td><span class="sbadge sbadge-blue">资料评估中</span></td>
+                                </tr>
+                                <tr id="noResultRow" style="display:none;">
+                                    <td colspan="5" style="text-align:center; padding:48px 0; color:var(--color-textMuted);">
+                                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block; margin:0 auto 10px; opacity:0.4;">
+                                            <path d="M8.92285 1C12.7461 1.00016 15.8456 4.09955 15.8457 7.92285C15.8457 9.76744 15.1223 11.4418 13.9463 12.6826L18.7285 19.1846C18.8919 19.407 18.8444 19.7202 18.6221 19.8838C18.3996 20.0474 18.0865 19.9988 17.9229 19.7764L13.2031 13.3604C12.025 14.2891 10.5396 14.8456 8.92285 14.8457C5.09945 14.8456 2 11.7463 2 7.92285C2.00012 4.09952 5.09952 1.00012 8.92285 1ZM8.92285 2C5.65181 2.00012 3.00012 4.65181 3 7.92285C3 11.194 5.65173 13.8456 8.92285 13.8457C12.1939 13.8455 14.8457 11.194 14.8457 7.92285C14.8456 4.65183 12.1939 2.00016 8.92285 2Z" fill="currentColor"/>
+                                        </svg>
+                                        <span class="type-label-l">查无资料</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+        </div><!-- /content-wrapper -->
+    </main>
+</div>
+
+<script>
+// ==========================================
+// 0. 可展开搜索框
+// ==========================================
+function toggleTableSearch() {
+    const wrap = document.getElementById('tableSearch');
+    const input = document.getElementById('tableSearchInput');
+    wrap.classList.toggle('open');
+    if (wrap.classList.contains('open')) {
+        setTimeout(() => input.focus(), 260);
+    }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('tableSearchInput');
+    const wrap  = document.getElementById('tableSearch');
+    input.addEventListener('blur', () => {
+        if (!input.value) wrap.classList.remove('open');
+    });
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { input.value = ''; input.blur(); filterTable(''); }
+    });
+    input.addEventListener('input', () => filterTable(input.value));
+
+    function filterTable(query) {
+        const q = query.trim().toLowerCase();
+        let hasResult = false;
+        document.querySelectorAll('.iwa-table tbody tr:not(#noResultRow)').forEach(row => {
+            const cell = row.querySelector('td:first-child');
+            const text = cell ? cell.textContent.toLowerCase() : '';
+            const match = !q || text.includes(q);
+            row.style.display = match ? '' : 'none';
+            if (match) hasResult = true;
+        });
+        const noResult = document.getElementById('noResultRow');
+        if (noResult) noResult.style.display = (q && !hasResult) ? '' : 'none';
+    }
+});
+
+// ==========================================
+// 1. 侧边栏逻辑
+// ==========================================
+const sidebar = document.getElementById('mainSidebar');
+const mainPinBtn = document.getElementById('sidebarPinBtn');
+const panels = document.querySelectorAll('.submenu-panel');
+const menuItems = document.querySelectorAll('.menu-item[data-target]');
+let isMainSidebarPinned = false;
+let globalHideTimeout = null;
+
+mainPinBtn.addEventListener('click', () => {
+    isMainSidebarPinned = !isMainSidebarPinned;
+    if (isMainSidebarPinned) {
+        sidebar.classList.remove('mini');
+        mainPinBtn.classList.add('active');
+    } else {
+        sidebar.classList.add('mini');
+        mainPinBtn.classList.remove('active');
+        panels.forEach(p => p.classList.remove('open'));
+    }
+});
+sidebar.addEventListener('mouseenter', () => {
+    clearTimeout(globalHideTimeout);
+    if (!isMainSidebarPinned) sidebar.classList.remove('mini');
+});
+sidebar.addEventListener('mouseleave', () => {
+    clearTimeout(globalHideTimeout);
+    globalHideTimeout = setTimeout(() => {
+        const hasPinnedPanel = Array.from(panels).some(p => p.dataset.pinned === 'true');
+        if (!isMainSidebarPinned) {
+            if (!hasPinnedPanel) {
+                sidebar.classList.add('mini');
+                panels.forEach(p => p.classList.remove('open'));
+            } else {
+                sidebar.classList.remove('mini');
+                panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+            }
+        } else {
+            panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+        }
+        menuItems.forEach(item => { if(item.dataset.target !== 'panel-supply') item.classList.remove('active'); });
+    }, 1000);
+});
+menuItems.forEach(item => {
+    item.addEventListener('mouseenter', () => {
+        const targetId = item.dataset.target;
+        if(targetId === 'dashboard') return;
+        menuItems.forEach(m => m.classList.remove('active'));
+        item.classList.add('active');
+        panels.forEach(p => {
+            if(p.id === targetId) p.classList.add('open');
+            else if(p.dataset.pinned !== 'true') p.classList.remove('open');
+        });
+    });
+});
+panels.forEach(panel => {
+    const pinBtn = panel.querySelector('.pin-btn');
+    pinBtn.addEventListener('click', () => {
+        const isPinned = panel.dataset.pinned === 'true';
+        panel.dataset.pinned = !isPinned;
+        pinBtn.classList.toggle('active', !isPinned);
+    });
+});
+
+// ==========================================
+// 2. 即时时钟
+// ==========================================
+function updateClock() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    document.getElementById('realtime-clock').textContent =
+        `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+updateClock(); setInterval(updateClock, 1000);
+
+// ==========================================
+// 3. 全萤幕
+// ==========================================
+document.getElementById('btn-fullscreen').addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().then(() => document.body.classList.add('is-fullscreen'));
+    else document.exitFullscreen();
+});
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) document.body.classList.remove('is-fullscreen');
+    setTimeout(() => allCharts.forEach(c => c.resize()), 350);
+});
+window.addEventListener('resize', () => allCharts.forEach(c => c.resize()));
+
+// ==========================================
+// 4. ECharts 初始化
+// ==========================================
+const allCharts = [];
+
+// --- Block 10: Top 5 供应商柱状图 ---
+const supplierBarChart = echarts.init(document.getElementById('supplierBarChart'));
+supplierBarChart.setOption({
+    grid:{top:10,right:20,bottom:30,left:80},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,0.04)'}},backgroundColor:'rgba(33,40,49,0.95)',borderColor:'rgba(255,255,255,0.50)',borderWidth:0.5,textStyle:{color:'#fff',fontSize:14}},
+    xAxis:{type:'value',splitLine:{lineStyle:{color:'rgba(255,255,255,0.05)'}},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:12,formatter:v=>v/1000+'k'}},
+    yAxis:{type:'category',data:['昆山X五金','宏X包材','日月X封测','台X电路板','联X半导体'],axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:12}},
+    series:[{
+        type:'bar',barWidth:16,
+        data:[{value:18400,itemStyle:{color:'#00B0FF'}},{value:25100,itemStyle:{color:'#00B0FF'}},{value:38500,itemStyle:{color:'#00B0FF'}},{value:45200,itemStyle:{color:'#00B0FF'}},{value:82150,itemStyle:{color:'#00B0FF'}}],
+        itemStyle:{borderRadius:[0,4,4,0]},
+        label:{show:true,position:'right',color:'rgba(255,255,255,0.70)',fontSize:10,formatter:p=>(p.value/1000).toFixed(1)+'k'},
+        emphasis:{focus:'self'}, blur:{itemStyle:{opacity:0.35}}
+    }]
+});
+allCharts.push(supplierBarChart);
+</script>
+</body>
+</html>

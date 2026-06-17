@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IWA 數位能碳管理 - 全廠總覽駕駛艙</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        /* =========================================
+           1. 核心設計變數 (Design Tokens — 對齊 Figma Web Dark)
+        ========================================= */
+        :root {
+            /* 基礎背景 */
+            --color-bgBase:        #212831;
+            --color-bgPanel:       #2C333C;
+            --color-bgHover:       rgba(255, 255, 255, 0.05);
+            --color-bg-menu-lv1:   #283A51;
+            --color-bg-menu-lv2:   #1D2C40;
+            --color-bg-menu-lv3:   #0D1F36;
+            --color-bg-chart-info: #313234;
+            --color-bg-alarm:      #2C3744;
+
+            /* 品牌色 */
+            --color-accentPrimary: #F8B62D;
+            --color-accentHover:   #fac84a;
+            --color-brand-blue:    #2A4464;
+            --color-indicator:     #00B0FF;
+
+            /* 文字色 */
+            --color-textMain:    #ffffff;
+            --color-textSub:     rgba(255, 255, 255, 0.70);
+            --color-textMuted:   rgba(255, 255, 255, 0.50);
+            --color-text-picker: rgba(255, 255, 255, 0.30);
+            --color-text-header: rgba(255, 255, 255, 0.80);
+            --color-text-menu:   #404852;
+            --color-divider:     rgba(255, 255, 255, 0.10);
+
+            /* 狀態色 */
+            --color-statusHigh:   #FF2D55;
+            --color-statusWarn:   #F1DE75;
+            --color-statusNormal: #5CC736;
+
+            /* 功能語意色（能源類型） */
+            --color-value-electricity: #A6FFB2;
+            --color-value-hvac:        #8AC1FF;
+            --color-value-sensor:      #D65486;
+            --color-value-light:       #FFF159;
+            --color-value-access:      #9A86F0;
+
+            /* Input 狀態 */
+            --color-input-hover-bg:      rgba(255, 255, 255, 0.05);
+            --color-input-select-yellow: rgba(248, 182, 45, 0.20);
+            --color-input-select-blue:   rgba(0, 176, 255, 0.20);
+            --color-input-error-bg:      rgba(255, 45, 85, 0.20);
+
+            /* White 透明階 */
+            --color-white-5:   rgba(255,255,255,0.05);
+            --color-white-15:  rgba(255,255,255,0.15);
+            --color-white-30:  rgba(255,255,255,0.30);
+            --color-white-50:  rgba(255,255,255,0.50);
+            --color-white-70:  rgba(255,255,255,0.70);
+            --color-white-80:  rgba(255,255,255,0.80);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--color-bgBase);
+            color: var(--color-textSub);
+            font-family: "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+            font-size: 16px;
+            font-weight: 400;
+            letter-spacing: 0.04em;
+            overflow: hidden;
+        }
+
+        /* Typography 工具類別（對齊設計系統 type-* tokens） */
+        .type-display-l { font-size: 40px; font-weight: 600; letter-spacing: 0.02em; }
+        .type-display-m { font-size: 35px; font-weight: 600; letter-spacing: 0.02em; }
+        .type-display-s { font-size: 30px; font-weight: 600; letter-spacing: 0.02em; }
+        .type-title-xl  { font-size: 28px; font-weight: 500; letter-spacing: 0.06em; }
+        .type-title-l   { font-size: 24px; font-weight: 500; letter-spacing: 0.06em; }
+        .type-title-m   { font-size: 20px; font-weight: 600; letter-spacing: 0.05em; }
+        .type-body-l        { font-size: 20px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-body-m        { font-size: 16px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-body-m-medium { font-size: 16px; font-weight: 500; letter-spacing: 0.04em; }
+        .type-body-m-light  { font-size: 16px; font-weight: 300; letter-spacing: 0.04em; }
+        .type-label-xl { font-size: 16px; font-weight: 600; letter-spacing: 0.04em; }
+        .type-label-l  { font-size: 14px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-label-m  { font-size: 13px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-label-s  { font-size: 12px; font-weight: 500; letter-spacing: 0.04em; }
+        .type-label-xs { font-size: 11px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-caption-l { font-size: 13px; font-weight: 300; letter-spacing: 0.04em; }
+        .type-caption-m { font-size: 12px; font-weight: 400; letter-spacing: 0.04em; }
+        .type-caption-s { font-size: 11px; font-weight: 300; letter-spacing: 0.04em; }
+
+        /* 相容舊 class（逐步替換用） */
+        .text-xs    { font-size: 12px; }
+        .text-sm    { font-size: 13px; }
+        .text-base  { font-size: 16px; }
+        .text-white { color: var(--color-textMain); }
+        .text-sub   { color: var(--color-textSub); }
+        .text-muted { color: var(--color-textMuted); }
+
+        /* =========================================
+           2. 版面結構與容器
+        ========================================= */
+        .layout-wrapper { display: flex; height: 100vh; overflow: hidden; }
+
+        /* --- 側邊欄 --- */
+        .iwa-frontend-sidebar {
+            width: 220px;
+            background-color: #283A51;
+            box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+            transition: transform 300ms ease-in-out, width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding-top: 17px;
+        }
+
+        .brand-area {
+            padding: 0 10px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .brand-logo-text { display: flex; align-items: center; gap: 10px; flex: 1; }
+        .brand-logo {
+            width: 26px; height: 26px;
+            border-radius: 5.91px;
+            border: 0.59px solid white;
+            background: white;
+            flex-shrink: 0;
+        }
+        .brand-text {
+            color: white;
+            font-size: 16px;
+            font-family: "PingFang TC", "Microsoft JhengHei", system-ui;
+            font-weight: 400;
+            white-space: nowrap;
+        }
+        .pin-btn {
+            background: rgba(15, 26, 42, 0.80); border: none;
+            cursor: pointer;
+            width: 26px; height: 26px; border-radius: 9999px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: background 150ms ease, color 150ms ease;
+        }
+        /* 丁選狀態：藍色 */
+        .pin-btn.active { color: #00B0FF; }
+        /* 解除丁選狀態：灰色 */
+        .pin-btn:not(.active) { color: #a9a9a9; }
+        /* hover：兩種狀態都變淺藍 */
+        .pin-btn:hover { background: rgba(15, 26, 42, 1); color: #9adfff; }
+        /* SVG 切換 */
+        .pin-btn.active .pin-svg--pin   { display: block; }
+        .pin-btn.active .pin-svg--unpin { display: none; }
+        .pin-btn:not(.active) .pin-svg--pin   { display: none; }
+        .pin-btn:not(.active) .pin-svg--unpin { display: block; }
+
+        .filter-area { padding: 0 10px; }
+        .filter-btn {
+            width: 100%; height: 30px; border-radius: 38px;
+            border: 0.5px solid rgba(255, 255, 255, 0.70);
+            background: #20324A;
+            color: rgba(255, 255, 255, 0.50);
+            display: flex; align-items: center;
+            justify-content: center; gap: 10px; cursor: pointer;
+            font-family: "PingFang TC", "Microsoft JhengHei", system-ui;
+            font-size: 16px; font-weight: 400;
+            transition: all 150ms ease-in-out;
+        }
+        .filter-btn:hover { border-color: var(--color-accentPrimary); color: var(--color-accentPrimary); }
+
+        .menu-list { list-style: none; flex: 1; overflow-y: auto; padding-right: 5px; }
+        .menu-item {
+            height: 42px;
+            padding: 10px 10px 10px 25px;
+            display: flex; align-items: center; cursor: pointer;
+            position: relative; color: white;
+            font-family: "PingFang TC", "Microsoft JhengHei", system-ui;
+            font-size: 16px; font-weight: 400;
+            border-radius: 5px;
+            transition: background 150ms ease-in-out;
+        }
+        .menu-item .icon-wrap { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 5px; overflow: hidden; }
+        .menu-item .icon-wrap i { transition: color 150ms ease; }
+        .menu-item .text { flex: 1; white-space: nowrap; }
+        .menu-item::before {
+            content: ''; position: absolute; left: 0; top: 5px; bottom: 5px;
+            width: 3px; background-color: var(--color-accentPrimary);
+            border-radius: 0 4px 3px 0;
+            opacity: 0; transition: opacity 150ms ease-in-out;
+        }
+        .menu-item:hover { background-color: transparent; }
+        .menu-item:hover::before { opacity: 0; }
+        .menu-item.active { color: var(--color-accentPrimary); font-weight: 400; }
+        .menu-item.active::before { opacity: 1; }
+        .menu-item.active .icon-wrap i { color: var(--color-accentPrimary); }
+
+        .iwa-frontend-sidebar.mini { width: 64px; padding-top: 17px; gap: 16px; }
+        .iwa-frontend-sidebar.mini .brand-text,
+        .iwa-frontend-sidebar.mini .menu-item .text,
+        .iwa-frontend-sidebar.mini .menu-item .arrow,
+        .iwa-frontend-sidebar.mini .filter-btn span { display: none !important; }
+        .iwa-frontend-sidebar.mini .menu-item { justify-content: center; padding: 0; }
+        .iwa-frontend-sidebar.mini .menu-item .icon-wrap { margin-right: 0; }
+        .iwa-frontend-sidebar.mini .filter-btn { width: 32px; padding: 0; margin: 0 auto; }
+        .iwa-frontend-sidebar.mini .brand-area { justify-content: center; padding: 0; }
+        .iwa-frontend-sidebar.mini .brand-logo-text { flex: 0 0 auto; }
+        .iwa-frontend-sidebar.mini .pin-btn { display: none; }
+
+        /* 次選單面板 */
+        .submenu-panel {
+            position: absolute; left: 100%; top: 0;
+            width: 220px; height: 100vh;
+            background-color: #1D2C40;
+            transform: translateX(-20px); opacity: 0;
+            pointer-events: none;
+            transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 99; display: flex; flex-direction: column;
+            padding-top: 17px; gap: 8px;
+        }
+        .submenu-panel.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+        .submenu-header {
+            height: 26px; padding: 0 10px;
+            display: flex; align-items: center; justify-content: flex-end;
+        }
+        .submenu-panel .menu-item { padding-left: 25px; }
+        .submenu-panel .menu-item:hover { background-color: rgba(0, 176, 255, 0.10); }
+        .submenu-panel .menu-item.active {
+            color: var(--color-accentPrimary);
+            background-color: rgba(0, 176, 255, 0.20);
+        }
+        .submenu-panel .menu-item.active::before { opacity: 1; }
+
+        /* 頂部工具列 */
+        .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .iwa-frontend-header {
+            height: 60px; background-color: var(--color-bgBase);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            transition: transform 300ms ease-in-out, opacity 300ms ease-in-out, height 300ms ease-in-out;
+        }
+        .breadcrumb { color: var(--color-textSub); font-size: 14px; font-weight: 400; } /* Label/L */
+        .header-controls { display: flex; align-items: center; gap: 16px; }
+        .header-icon { color: var(--color-textSub); cursor: pointer; font-size: 16px; transition: color 150ms ease-in-out; }
+        .header-icon:hover { color: #ffffff; }
+        .header-divider { height: 24px; border-left: 1px solid rgba(255,255,255,0.15); margin: 0 8px; }
+        .brand-time { display: flex; align-items: center; gap: 12px; }
+        .time-text { display: flex; flex-direction: column; align-items: flex-end; }
+
+        /* 主內容區 */
+        .content-wrapper {
+            flex: 1; padding: 16px 24px 24px 24px;
+            overflow-y: auto; display: flex; flex-direction: column; gap: 24px;
+        }
+        .content-wrapper::-webkit-scrollbar { width: 6px; }
+        .content-wrapper::-webkit-scrollbar-track { background: transparent; }
+        .content-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+        .content-wrapper::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+        body.is-fullscreen .iwa-frontend-sidebar { transform: translateX(-100%); width: 0; opacity: 0; pointer-events: none; }
+        body.is-fullscreen .iwa-frontend-header { transform: translateY(-100%); height: 0; opacity: 0; pointer-events: none; }
+
+        /* =========================================
+           3. 卡片基礎
+        ========================================= */
+        .iwa-frontend-card {
+            background-color: var(--color-bgPanel);
+            border-radius: 10px;
+            padding: 20px;
+            gap: 20px;
+            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.50);
+            position: relative;
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .card-title { color: var(--color-textMain); font-size: 16px; font-weight: 400; } /* Body/M */
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 400; color: var(--color-textSub); }
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .legend-value { margin-left: auto; color: var(--color-textMain); font-weight: 600; font-size: 12px; }
+        .workshop-legend { display: flex; flex-direction: column; gap: 10px; }
+        .chart-with-legend { display: flex; align-items: center; gap: 20px; }
+        .chart-container { position: relative; flex-shrink: 0; }
+        .capacity-note { display: flex; gap: 16px; padding-top: 12px; border-top: 1px solid var(--color-divider); margin-top: 4px; }
+        .capacity-note-item { display: flex; flex-direction: column; gap: 4px; }
+        .capacity-note-label { font-size: 14px; font-weight: 400; color: var(--color-textMuted); }
+        .capacity-note-value { font-size: 30px; font-weight: 600; color: var(--color-textMain); line-height: 1.1; }
+        .capacity-note-value .unit { font-size: 14px; font-weight: 400; color: var(--color-textSub); margin-left: 4px; }
+
+        /* =========================================
+           4. 模組區塊標題 (Module Section)
+        ========================================= */
+        .module-section { display: flex; flex-direction: column; gap: 16px; padding-top: 10px; padding-bottom: 10px; }
+
+        .module-section-header {
+            display: flex; align-items: center; gap: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .module-num {
+            width: 28px; height: 28px; border-radius: 8px;
+            background: transparent;
+            border: 1px solid rgba(241, 222, 117, 0.50);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--color-statusWarn); font-size: 16px; font-weight: 600;
+            flex-shrink: 0;
+        }
+        .module-title { color: var(--color-textMain); font-size: 28px; font-weight: 500; letter-spacing: 0.06em; } /* Title/XL */
+        .module-desc { color: var(--color-textMuted); font-size: 14px; font-weight: 400; margin-left: 2px; letter-spacing: 0.04em; } /* Label/L */
+        .module-tag {
+            margin-left: auto;
+            background: rgba(0,176,255,0.15); color: var(--color-indicator);
+            border: 1px solid rgba(0,176,255,0.3);
+            padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+        }
+        .module-tag.green { background: rgba(92,199,54,0.12); color: var(--color-statusNormal); border-color: rgba(92,199,54,0.3); }
+
+        /* =========================================
+           5. Block 1: 能耗查詢 – 佈局
+        ========================================= */
+        .block1-grid {
+            display: grid;
+            grid-template-columns: 260px 1fr 220px;
+            grid-template-rows: auto auto;
+            gap: 16px;
+        }
+        .block1-main-gauge { grid-column: 1; grid-row: 1 / 3; }
+        .block1-hourly { grid-column: 2; grid-row: 1 / 3; }
+        .block1-areas { grid-column: 3; grid-row: 1 / 3; }
+
+        /* 儀表板數值顯示 */
+        .gauge-wrapper { width: 100%; height: 200px; }
+        .gauge-mini { width: 100%; height: 120px; }
+
+        /* 廠區佔比條 */
+        .area-row { display: flex; flex-direction: column; gap: 10px; }
+        .area-item {}
+        .area-label { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .area-bar-bg { background: rgba(255,255,255,0.08); height: 7px; border-radius: 4px; overflow: hidden; }
+        .area-bar-fill { height: 100%; border-radius: 4px; transition: width 800ms ease; }
+
+        /* =========================================
+           6. Block 2: 能源消費量與強度計算
+        ========================================= */
+        .kpi5-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+        .kpi-card { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+        .kpi-card .kpi-value-row { min-height: 36px; display: flex; align-items: center; }
+        .kpi-label { font-size: 14px; font-weight: 400; color: var(--color-textSub); margin-bottom: 8px; } /* Label/L */
+        .kpi-num { font-size: 30px; font-weight: 600; color: var(--color-textMain); line-height: 1; }       /* Display/S */
+        .kpi-unit { font-size: 12px; font-weight: 500; color: var(--color-textSub); margin-left: 4px; }    /* Label/S */
+        .badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 999px;
+            font-size: 12px; font-weight: 500; /* Label/S */
+            white-space: nowrap; align-self: flex-start;
+        }
+        .badge-up   { background: rgba(239,68,68,0.15);   color: var(--color-statusHigh); }
+        .badge-down { background: rgba(34,197,94,0.15);   color: var(--color-statusNormal); }
+        .badge-warn { background: rgba(249,115,22,0.15);  color: var(--color-statusWarn); }
+        .badge-info { background: rgba(0,103,255,0.15);   color: var(--color-indicator); }
+        .kpi-level {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 400; /* Label/M */
+            margin-top: 10px;
+        }
+        .kpi-level.high { background: rgba(255,45,85,0.15);   color: var(--color-statusHigh);   border: 1px solid rgba(255,45,85,0.3); }
+        .kpi-level.mid  { background: rgba(241,222,117,0.15); color: var(--color-statusWarn);   border: 1px solid rgba(241,222,117,0.3); }
+        .kpi-level.low  { background: rgba(92,199,54,0.15);   color: var(--color-statusNormal); border: 1px solid rgba(92,199,54,0.3); }
+
+        /* =========================================
+           7. Block 3: 消費分析與策略推薦
+        ========================================= */
+        .block3-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+        .block3-left { display: flex; flex-direction: column; gap: 16px; height: 100%; }
+        .block3-left .iwa-frontend-card { flex: 1; }
+
+        .energy-structure-card {}
+        .donut-wrap { height: 240px; }
+
+        .struct-kpi { display: flex; flex-direction: column; gap: 10px; padding: 8px 0; }
+        .struct-kpi-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--color-divider); }
+        .struct-kpi-row:last-child { border-bottom: none; }
+        .struct-kpi-val { font-size: 30px; font-weight: 600; color: var(--color-textMain); } /* Display/S */
+        .struct-kpi-sub { font-size: 11px; font-weight: 400; color: var(--color-textSub); } /* Label/XS */
+
+        .trend-chart-wrap { height: 260px; }
+
+        /* =========================================
+           8. Block 4: 能效對標
+        ========================================= */
+        .block4-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+        .stat-card { padding: 16px 18px; }
+        .stat-label { font-size: 14px; font-weight: 400; color: var(--color-textSub); margin-bottom: 8px; } /* Label/L */
+        .stat-num   { font-size: 30px; font-weight: 600; color: var(--color-textMain); }                   /* Display/S */
+        .stat-unit  { font-size: 12px; font-weight: 500; color: var(--color-textSub); margin-left: 3px; }  /* Label/S */
+
+        .pareto-wrap { height: 300px; }
+
+        /* =========================================
+           9. Block 5: 能流分析
+        ========================================= */
+        .sankey-wrap { height: 380px; }
+
+        /* 雜項 */
+        .badge-alert { background: var(--color-statusHigh); color: white; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; } /* Label/S */
+        .progress-bg { background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; margin-top: 12px; overflow: hidden; }
+        .progress-bar { background: var(--color-accentPrimary); height: 100%; border-radius: 4px; }
+
+        /* 時段標籤列 */
+        .period-bar { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+        .period-label { font-size: 12px; font-weight: 500; color: var(--color-textSub); }
+
+        /* ---- IWA Dropdown Type2（對齊 design-system Section 9b）---- */
+        .iwa-dd2-wrap { position: relative; display: inline-block; user-select: none; }
+        .iwa-dd2-trigger {
+            display: inline-flex; align-items: center; justify-content: space-between;
+            padding: 4px 10px; gap: 10px; min-width: 107px;
+            background: var(--color-bgBase); border-radius: 25px;
+            outline: 1px solid rgba(255,255,255,1); outline-offset: -1px;
+            opacity: 0.50; cursor: pointer;
+            transition: opacity 150ms, outline-color 150ms;
+        }
+        .iwa-dd2-trigger:hover { opacity: 1; outline-color: var(--color-accentPrimary); }
+        .iwa-dd2-trigger:hover .dd2-text { color: var(--color-accentPrimary); }
+        .iwa-dd2-trigger:hover .dd2-chevron { fill: var(--color-accentPrimary); }
+        .iwa-dd2-wrap.open .iwa-dd2-trigger {
+            opacity: 1; outline-color: var(--color-accentPrimary);
+            border-radius: 10px 10px 0 0;
+        }
+        .iwa-dd2-wrap.open .iwa-dd2-trigger .dd2-chevron { fill: var(--color-accentPrimary); transform: rotate(180deg); }
+        .dd2-text {
+            flex: 1; text-align: center; color: white;
+            font-size: 16px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+            transition: color 150ms;
+        }
+        .dd2-chevron { width: 10px; height: 10px; fill: white; flex-shrink: 0; transition: fill 150ms, transform 200ms ease; }
+        .iwa-dd2-panel {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+            background: var(--color-bgBase);
+            border: 1px solid var(--color-accentPrimary); border-top: none;
+            border-radius: 0 0 10px 10px;
+            overflow: hidden;
+            max-height: 0; opacity: 0;
+            transition: max-height 200ms ease, opacity 150ms ease;
+            pointer-events: none;
+        }
+        .iwa-dd2-wrap.open .iwa-dd2-panel { max-height: 300px; opacity: 1; pointer-events: auto; }
+        .dd2-option {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 10px; column-gap: 10px;
+            color: white; font-size: 16px; font-weight: 400;
+            font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+            cursor: pointer; transition: color 100ms;
+        }
+        .dd2-option:hover { color: var(--color-accentPrimary); }
+        .dd2-option.selected { color: var(--color-accentPrimary); }
+        .dd2-opt-text { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dd2-tick { display: flex; align-items: center; flex-shrink: 0; width: 10px; height: 10px; opacity: 0; }
+        .dd2-option.selected .dd2-tick { opacity: 1; }
+        /* Small（輕量小選單，用於圖表切換） */
+        .iwa-dd2-wrap.is-small .iwa-dd2-trigger { padding: 2px 8px; min-width: 100px; gap: 8px; }
+        .iwa-dd2-wrap.is-small .dd2-text { font-size: 13px; }
+        .iwa-dd2-wrap.is-small .dd2-chevron { width: 8px; height: 8px; }
+        .iwa-dd2-wrap.is-small .iwa-dd2-panel { border-radius: 0 0 8px 8px; }
+        .iwa-dd2-wrap.is-small .dd2-option { padding: 5px 8px; font-size: 13px; column-gap: 8px; }
+        .iwa-dd2-wrap.is-small .dd2-tick { width: 8px; height: 8px; }
+        .iwa-dd2-wrap.is-small .dd2-tick svg { width: 8px; height: 8px; }
+
+        /* Disabled */
+        .iwa-dd2-trigger.is-disabled { opacity: 0.30; cursor: not-allowed; pointer-events: none; }
+
+        /* =========================================
+           Block 6: AI 異常分析
+        ========================================= */
+        .anomaly-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .anomaly-card {
+            background: var(--color-bgPanel);
+            border-radius: 5px; padding: 14px 16px;
+            position: relative;
+        }
+        .anomaly-sev { display: flex; gap: 2px; margin-top: 6px; }
+        .star-filled { color: var(--color-accentPrimary); font-size: 11px; }
+        .star-empty  { color: var(--color-textMuted); font-size: 11px; }
+        .ai-report-header {
+            display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+            background: linear-gradient(90deg, rgba(0,176,255,0.12), transparent);
+            border-radius: 5px; margin-bottom: 14px;
+        }
+
+        /* =========================================
+           共用表格 + 進度條 + 狀態標籤
+        ========================================= */
+        .iwa-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .iwa-table th { padding: 10px 8px; font-size: 12px; color: var(--color-textMuted); border-bottom: 1px solid var(--color-divider); font-weight: normal; }
+        .iwa-table td { padding: 10px 8px; font-size: 13px; border-bottom: 1px solid var(--color-divider); color: var(--color-textMain); vertical-align: middle; }
+        .iwa-table tr:hover { background: var(--color-bgHover); }
+
+        .progress-bar-bg { background: rgba(255,255,255,0.08); border-radius: 4px; height: 7px; overflow: hidden; flex: 1; min-width: 60px; }
+        .progress-bar-fill { height: 100%; border-radius: 4px; background: var(--color-accentPrimary); }
+        .progress-container { margin-top: 10px; }
+        .progress-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: 400; color: var(--color-textMuted); margin-top: 4px; }
+
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .dot-red    { background: var(--color-statusHigh); }
+        .dot-orange { background: var(--color-statusWarn); }
+        .dot-green  { background: var(--color-statusNormal); }
+        .dot-blue   { background: var(--color-indicator); }
+
+        .sbadge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 12px; font-weight: 400; border: 1px solid transparent;
+        }
+        .sbadge-red    { background: rgba(255,45,85,0.15);    color: var(--color-statusHigh);   border-color: rgba(255,45,85,0.3); }
+        .sbadge-orange { background: rgba(241,222,117,0.15); color: var(--color-statusWarn);   border-color: rgba(241,222,117,0.3); }
+        .sbadge-green  { background: rgba(92,199,54,0.15);   color: var(--color-statusNormal); border-color: rgba(92,199,54,0.3); }
+        .sbadge-blue   { background: rgba(0,176,255,0.15);   color: var(--color-indicator);    border-color: rgba(0,176,255,0.3); }
+        .sbadge-yellow { background: rgba(248,182,45,0.15);  color: var(--color-accentPrimary); border-color: rgba(248,182,45,0.3); }
+
+        .action-btn {
+            background: transparent; border: 1px solid var(--color-textMuted);
+            color: var(--color-textSub); padding: 3px 10px; border-radius: 4px;
+            cursor: pointer; font-size: 12px; transition: all 150ms;
+            white-space: nowrap;
+        }
+        .action-btn:hover { border-color: var(--color-accentPrimary); color: var(--color-accentPrimary); }
+        .action-btn.urge { border-color: var(--color-statusHigh); color: var(--color-statusHigh); }
+
+        /* star ratings */
+        .star-high { color: var(--color-accentPrimary); font-size: 11px; }
+        .star-low  { color: var(--color-textMuted); font-size: 11px; }
+
+        /* grid helpers for blocks 7-12 */
+        .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .grid-kpi4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+        /* voucher preview (block 11) */
+        .voucher-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .voucher-card {
+            background: rgba(30,41,59,0.6); border-radius: 10px; padding: 14px;
+            border: 1px solid var(--color-divider);
+        }
+        .hash-tag {
+            background: rgba(0,103,255,0.1); border: 1px solid rgba(0,103,255,0.2);
+            color: #60a5fa; font-size: 11px; padding: 3px 8px; border-radius: 4px;
+            font-family: monospace; word-break: break-all;
+        }
+
+        /* AI recommendation box (block 12) */
+        .ai-rec-box {
+            background: linear-gradient(90deg, rgba(0,176,255,0.10), transparent);
+            border: 1px solid rgba(0,176,255,0.2); border-radius: 5px;
+            padding: 14px 16px; display: flex; align-items: flex-start;
+            gap: 12px; margin-bottom: 14px;
+        }
+
+        /* Carbon budget AI alert */
+        .budget-ai-box {
+            background: rgba(248,182,45,0.06); border: 1px solid rgba(248,182,45,0.2);
+            border-radius: 5px; padding: 16px; display: flex; gap: 14px; align-items: flex-start;
+        }
+
+        /* select */
+        .select-model {
+            background: rgba(30,41,59,0.8); border: 1px solid var(--color-textMuted);
+            color: var(--color-textMain); padding: 6px 12px; border-radius: 6px;
+            font-size: 13px; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="layout-wrapper">
+
+    <!-- ==================== SIDEBAR ==================== -->
+    <nav class="iwa-frontend-sidebar" id="mainSidebar">
+        <div class="brand-area">
+            <div class="brand-logo-text">
+                <div class="brand-logo">SU</div>
+                <span class="type-body-m text-white brand-text">群電蘇州廠</span>
+            </div>
+            <button class="pin-btn active" id="sidebarPinBtn">
+                <svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/>
+                </svg>
+                <svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/>
+                </svg>
+            </button>
+        </div>
+
+
+        <ul class="menu-list inner-scroll-container">
+            <a href="index.html" style="text-decoration: none;">
+                <li class="menu-item active" data-target="dashboard">
+                    <div class="icon-wrap"><i class="fa-solid fa-chart-pie"></i></div>
+                    <span class="text">全廠總覽</span>
+                </li>
+            </a>
+            <a href="energy-monitor.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-energy">
+                    <div class="icon-wrap"><i class="fa-solid fa-bolt"></i></div>
+                    <span class="text">能源智慧監測</span>
+                </li>
+            </a>
+            <a href="efficiency-opt.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-efficiency">
+                    <div class="icon-wrap"><i class="fa-solid fa-leaf"></i></div>
+                    <span class="text">能效診斷與優化</span>
+                </li>
+            </a>
+            <a href="carbon-mgmt.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-carbon">
+                    <div class="icon-wrap"><i class="fa-solid fa-cloud"></i></div>
+                    <span class="text">碳排放管理與核算</span>
+                </li>
+            </a>
+            <a href="supply-chain.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-supply">
+                    <div class="icon-wrap"><i class="fa-solid fa-link"></i></div>
+                    <span class="text">價值鏈與資產營運</span>
+                </li>
+            </a>
+        </ul>
+
+        <!-- 能源智慧監測 次選單 -->
+        <div class="submenu-panel" id="panel-energy" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="energy-query.html" style="text-decoration: none;"><li class="menu-item active"><span class="text">① 能耗查詢</span></li></a>
+                <a href="energy-intensity.html" style="text-decoration: none;"><li class="menu-item"><span class="text">② 能源消費量與強度計算</span></li></a>
+                <a href="energy-flow.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑤ 能流分析</span></li></a>
+            </ul>
+        </div>
+        <!-- 能效診斷與優化 次選單 -->
+        <div class="submenu-panel" id="panel-efficiency" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="efficiency-analysis.html" style="text-decoration: none;"><li class="menu-item"><span class="text">③ 消費分析與策略推薦</span></li></a>
+                <a href="efficiency-benchmark.html" style="text-decoration: none;"><li class="menu-item"><span class="text">④ 能效對標</span></li></a>
+                <a href="efficiency-balance.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑥ 能效平衡與優化</span></li></a>
+            </ul>
+        </div>
+        <!-- 碳排放管理與核算 次選單 -->
+        <div class="submenu-panel" id="panel-carbon" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="carbon-budget.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑦ 用能與碳排放預算管理</span></li></a>
+                <a href="carbon-accounting.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑧ 碳排放核算</span></li></a>
+                <a href="product-footprint.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑨ 碳足跡核算</span></li></a>
+            </ul>
+        </div>
+        <!-- 價值鏈與資產營運 次選單 -->
+        <div class="submenu-panel" id="panel-supply" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="supply-chain-mgmt.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑩ 供應鏈碳管理</span></li></a>
+                <a href="carbon-audit.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑪ 碳核查支撐</span></li></a>
+                <a href="carbon-assets.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑫ 碳資產管理</span></li></a>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- ==================== MAIN ==================== -->
+    <main class="main-area">
+        <header class="iwa-frontend-header">
+            <div class="breadcrumb">數位能碳管理中心 / 全廠駕駛艙總覽</div>
+            <div class="header-controls">
+                <i class="fa-solid fa-moon header-icon"></i>
+                <i class="fa-solid fa-expand header-icon" id="btn-fullscreen"></i>
+                <i class="fa-regular fa-bell header-icon"></i>
+                <i class="fa-solid fa-border-all header-icon"></i>
+                <div style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <i class="fa-regular fa-user header-icon"></i>
+                    <span class="type-label-m">Admin User</span>
+                </div>
+                <div class="header-divider"></div>
+                <div class="brand-time">
+                    <div class="brand-logo" style="width:24px; height:24px; font-size:10px;">IWA</div>
+                    <div class="time-text">
+                        <span class="type-label-m text-white" style="font-weight:600;">IWA</span>
+                        <span class="type-caption-m" id="realtime-clock"></span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="content-wrapper" id="contentWrapper">
+
+            <!-- =============================================
+                 BLOCK 1：能耗查詢
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">1</div>
+                    <span class="module-title">能耗查詢</span>
+                    <span class="module-desc">即時多維度能源消耗數據 ／ 設備・產線・車間</span>
+                </div>
+
+                <div class="block1-grid">
+                    <!-- 左：即時用電數值 -->
+                    <div class="iwa-frontend-card block1-main-gauge" style="display:flex; flex-direction:column; justify-content:space-between; gap:20px;">
+                        <div class="card-header" style="margin-bottom:0;">
+                            <div class="card-title">同廠廠即時用電</div>
+                        </div>
+
+                        <!-- 主數值 -->
+                        <div style="display:flex; flex-direction:column; gap:4px;">
+                            <div class="type-label-l" style="color:var(--color-textMuted);">當前用電量</div>
+                            <div style="display:flex; align-items:baseline; gap:8px;">
+                                <span class="type-display-l" style="color:var(--color-value-electricity);">3,015</span>
+                                <span class="type-label-l" style="color:var(--color-value-electricity);">kW</span>
+                            </div>
+                        </div>
+
+                        <!-- 分隔線 -->
+                        <div style="height:1px; background:var(--color-divider);"></div>
+
+                        <!-- 佔比 + 狀態 -->
+                         <!--
+                        <div style="display:flex; flex-direction:column; gap:4px;">
+                            <div class="type-label-l" style="color:var(--color-textMuted);">負載率</div>
+                            <div style="display:flex; align-items:baseline; gap:8px;">
+                                <span class="type-display-s" style="color:var(--color-value-electricity);">25.07</span>
+                                <span class="type-label-l" style="color:var(--color-textMuted);">%</span>
+                            </div>
+                            <div class="type-caption-m" style="color:var(--color-value-electricity);">負載正常</div>
+                        </div>
+                        -->
+
+                        <!-- 剩餘容量 -->
+                         <!--
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            <div style="display:flex; justify-content:space-between;">
+                                <span class="type-label-s" style="color:var(--color-textMuted);">可用容量</span>
+                                <span class="type-label-s" style="color:var(--color-textMain);">9,484 kW</span>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.08); border-radius:4px; height:6px; overflow:hidden;">
+                                <div style="width:25.07%; height:100%; background:var(--color-value-electricity); border-radius:4px;"></div>
+                            </div>
+                            <div class="type-caption-m" style="color:var(--color-textMuted);">額定 12,500 kW</div>
+                        </div>
+                        -->
+                    </div>
+
+                    <!-- 中：每小時用電量 -->
+                    <div class="iwa-frontend-card block1-hourly">
+                        <div class="card-header">
+                            <div class="card-title">廠區每小時用電量 (kWh)</div>
+                            <div class="period-bar">
+                                <div class="iwa-dd2-wrap is-small" id="dd-hourly">
+                                    <div class="iwa-dd2-trigger" onclick="toggleDD('dd-hourly')">
+                                        <span class="dd2-text" id="dd-hourly-val">今日</span>
+                                        <svg class="dd2-chevron" viewBox="0 0 32 32"><path d="M15.998 19.576l12.091-12.091c0.895-0.895 2.345-0.895 3.24 0s0.895 2.345 0 3.24l-13.322 13.322c-0.093 0.154-0.206 0.299-0.339 0.431-0.298 0.298-0.658 0.497-1.039 0.596-0.794 0.258-1.7 0.072-2.331-0.558-0.184-0.183-0.329-0.39-0.438-0.611l-13.19-13.19c-0.893-0.893-0.893-2.341 0-3.234s2.341-0.893 3.234 0l12.095 12.095z"/></svg>
+                                    </div>
+                                    <div class="iwa-dd2-panel">
+                                        <div class="dd2-option selected" onclick="selectDD('dd-hourly','今日',this)"><span class="dd2-opt-text">今日</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c1)"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></g><defs><clipPath id="c1"><rect width="10" height="10" fill="white"/></clipPath></defs></svg></span></div>
+                                        <div class="dd2-option" onclick="selectDD('dd-hourly','昨日',this)"><span class="dd2-opt-text">昨日</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c1)"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></g><defs><clipPath id="c1"><rect width="10" height="10" fill="white"/></clipPath></defs></svg></span></div>
+                                        <div class="dd2-option" onclick="selectDD('dd-hourly','本週',this)"><span class="dd2-opt-text">本週</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c1)"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></g><defs><clipPath id="c1"><rect width="10" height="10" fill="white"/></clipPath></defs></svg></span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="hourlyBar" style="height:300px;"></div>
+                    </div>
+
+                    <!-- 右：各廠區佔比 -->
+                    <div class="iwa-frontend-card block1-areas">
+                        <div class="card-header">
+                            <div class="card-title">各廠區佔比</div>
+                        </div>
+                        <div class="area-row" id="areaRows">
+                            <!-- 動態產生 -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- =============================================
+                 BLOCK 2：能源消費量與強度計算
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">2</div>
+                    <span class="module-title">能源消費量與強度計算</span>
+                    <span class="module-desc">消費量統計 × EUI 強度指標 × 年度 KPI 比較</span>
+                    <div class="iwa-dd2-wrap" id="dd-year" style="margin-left:auto;">
+                        <div class="iwa-dd2-trigger" onclick="toggleDD('dd-year')" style="min-width:100px;">
+                            <span class="dd2-text" id="dd-year-val" style="font-size:13px;">2025</span>
+                            <svg class="dd2-chevron" viewBox="0 0 32 32"><path d="M15.998 19.576l12.091-12.091c0.895-0.895 2.345-0.895 3.24 0s0.895 2.345 0 3.24l-13.322 13.322c-0.093 0.154-0.206 0.299-0.339 0.431-0.298 0.298-0.658 0.497-1.039 0.596-0.794 0.258-1.7 0.072-2.331-0.558-0.184-0.183-0.329-0.39-0.438-0.611l-13.19-13.19c-0.893-0.893-0.893-2.341 0-3.234s2.341-0.893 3.234 0l12.095 12.095z"/></svg>
+                        </div>
+                        <div class="iwa-dd2-panel">
+                            <div class="dd2-option selected" onclick="selectDD('dd-year','2025',this)"><span class="dd2-opt-text" style="font-size:13px;">2025</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c2)"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></g><defs><clipPath id="c2"><rect width="10" height="10" fill="white"/></clipPath></defs></svg></span></div>
+                            <div class="dd2-option" onclick="selectDD('dd-year','2024',this)"><span class="dd2-opt-text" style="font-size:13px;">2024</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c2)"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></g><defs><clipPath id="c2"><rect width="10" height="10" fill="white"/></clipPath></defs></svg></span></div>
+                            <div class="dd2-option" onclick="selectDD('dd-year','2023',this)"><span class="dd2-opt-text" style="font-size:13px;">2023</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c2)"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></g><defs><clipPath id="c2"><rect width="10" height="10" fill="white"/></clipPath></defs></svg></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kpi5-row">
+                    <div class="iwa-frontend-card kpi-card">
+                        <div class="kpi-label">綜合能源消費量</div>
+                        <div class="kpi-value-row"><span class="kpi-num">3,248</span><span class="kpi-unit">tce</span></div>
+                        <span class="badge badge-up">↑ 8.3% 同比</span>
+                    </div>
+                    <div class="iwa-frontend-card kpi-card">
+                        <div class="kpi-label">能源成本</div>
+                        <div class="kpi-value-row"><span class="kpi-num">2,716</span><span class="kpi-unit">萬元</span></div>
+                        <span class="badge badge-up">↑ 6.5% 同比</span>
+                    </div>
+                    <div class="iwa-frontend-card kpi-card">
+                        <div class="kpi-label">萬元產值能耗</div>
+                        <div class="kpi-value-row type-display-s" style="color:var(--color-statusHigh);">
+                            <i class="fa-solid fa-arrow-up"></i> 高
+                        </div>
+                        <span class="badge badge-up">↑ 8.9% 同比 — 超出行業均值</span>
+                    </div>
+                    <div class="iwa-frontend-card kpi-card">
+                        <div class="kpi-label">單位產品能耗 (EUI)</div>
+                        <div class="kpi-value-row type-display-s" style="color:var(--color-statusWarn);">
+                            <i class="fa-solid fa-minus"></i> 中
+                        </div>
+                        <span class="badge badge-down">↓ 1.2% 同比 — 趨近國家先進值</span>
+                    </div>
+                    <div class="iwa-frontend-card kpi-card">
+                        <div class="kpi-label">碳排放量</div>
+                        <div class="kpi-value-row"><span class="kpi-num">19,690</span><span class="kpi-unit">tCO₂e</span></div>
+                        <span class="badge badge-up">↑ 7.1% 同比</span>
+                    </div>
+                </div>
+
+                <!-- 附加：年度消費量趨勢小圖 -->
+                <div class="iwa-frontend-card">
+                    <div class="card-header">
+                        <div class="card-title">年度綜合能源消費量趨勢（tce）<span class="type-label-l text-muted" style="margin-left:8px;">與去年同期比較</span></div>
+                    </div>
+                    <div id="consumptionTrend" style="height: 200px;"></div>
+                </div>
+            </section>
+
+            <!-- =============================================
+                 BLOCK 3：能源消費分析與用能策略推薦
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">3</div>
+                    <span class="module-title">能源消費分析與用能策略推薦</span>
+                    <span class="module-desc">能源結構組成 × 年度趨勢</span>
+                </div>
+
+                <div class="block3-grid">
+                    <!-- 左側：結構組成 + KPI -->
+                    <div class="block3-left">
+                        <div class="iwa-frontend-card">
+                            <div class="card-header">
+                                <div class="card-title">能源結構組成 2025</div>
+                            </div>
+                            <div style="display:flex; gap:24px; align-items:stretch;">
+                                <!-- 左：圓環圖 + legend -->
+                                <div style="flex:0 0 55%; display:flex; flex-direction:column; gap:12px;">
+                                    <div id="donutChart" style="height:260px;"></div>
+                                    <!-- 自訂 legend 橫排 -->
+                                    <div style="display:flex; flex-wrap:wrap; gap:8px 16px; justify-content:center;">
+                                        <div class="legend-item"><span class="legend-dot" style="background:#00B0FF;"></span><span>國網電</span></div>
+                                        <div class="legend-item"><span class="legend-dot" style="background:#A6FFB2;"></span><span>光伏</span></div>
+                                        <div class="legend-item"><span class="legend-dot" style="background:#F1DE75;"></span><span>儲能站</span></div>
+                                        <div class="legend-item"><span class="legend-dot" style="background:#5CC736;"></span><span>綠電 PPA</span></div>
+                                        <div class="legend-item"><span class="legend-dot" style="background:#F8B62D;"></span><span>天然氣</span></div>
+                                    </div>
+                                </div>
+                                <!-- 分隔線 -->
+                                <div style="width:1px;background:var(--color-divider);flex-shrink:0;"></div>
+                                <!-- 右：統計數值 -->
+                                <div style="flex:1; display:flex; flex-direction:column; gap:20px; justify-content:center; padding:10px 0;">
+                                    <div>
+                                        <div class="type-label-l text-sub">折標煤量</div>
+                                        <div class="type-display-s" style="color:var(--color-textMain);margin-top:4px;">3,248 <span class="type-caption-m text-sub">tce</span></div>
+                                        <span class="badge badge-up" style="margin-top:8px;">↑ 8.3% 同比</span>
+                                    </div>
+                                    <div>
+                                        <div class="type-label-l text-sub">碳排放</div>
+                                        <div class="type-display-s" style="color:var(--color-textMain);margin-top:4px;">19,690 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                                        <span class="badge badge-up" style="margin-top:8px;">↑ 7.1% 同比</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右側：年度趨勢 + AI建議 -->
+                    <div style="display:flex; flex-direction:column; gap:16px; height:100%;">
+                        <div class="iwa-frontend-card" style="flex:1;">
+                            <div class="card-header">
+                                <div class="card-title">年度能源實際消費量趨勢 2022–2025</div>
+                                <span class="type-caption-m text-sub">各能源來源佔比（%）</span>
+                            </div>
+                            <div id="stackedBar" class="trend-chart-wrap"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- =============================================
+                 BLOCK 4：能效對標
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">4</div>
+                    <span class="module-title">能效對標</span>
+                    <span class="module-desc">重大能源使用（SEU）識別 × 帕雷托分析 × 行業標杆比較</span>
+                </div>
+
+                <div style="display:grid; grid-template-columns:240px 1fr; gap:16px; align-items:stretch;">
+
+                    <!-- 左：4 張 KPI 卡 -->
+                    <div style="display:flex; flex-direction:column; gap:16px;">
+                        <div class="iwa-frontend-card stat-card">
+                            <div class="stat-label">SEU 數量（≥80% 累計佔比）</div>
+                            <div><span class="stat-num">12</span><span class="stat-unit">項</span></div>
+                            <div class="type-caption-m text-muted" style="margin-top:4px;">共 23 項設備系統</div>
+                        </div>
+                        <div class="iwa-frontend-card stat-card">
+                            <div class="stat-label">瀑面能耗佔比</div>
+                            <div><span class="stat-num">80.8</span><span class="stat-unit">%</span></div>
+                            <div class="type-caption-m text-muted" style="margin-top:4px;">達到 80% SEU 邊界線</div>
+                        </div>
+                        <div class="iwa-frontend-card stat-card">
+                            <div class="stat-label">SEU 耗能</div>
+                            <div><span class="stat-num">2,625</span><span class="stat-unit">tce</span></div>
+                            <div class="type-caption-m text-muted" style="margin-top:4px;">佔全廠 80.8%</div>
+                        </div>
+                        <div class="iwa-frontend-card stat-card">
+                            <div class="stat-label">非 SEU 項目</div>
+                            <div><span class="stat-num">11</span><span class="stat-unit">項</span></div>
+                            <div class="type-caption-m text-muted" style="margin-top:4px;">僅佔 19.5%</div>
+                        </div>
+                    </div>
+
+                    <!-- 右：帕雷托圖 -->
+                    <div class="iwa-frontend-card" style="display:flex; flex-direction:column;">
+                        <div class="card-header" style="margin-bottom:0;">
+                            <div class="card-title">設備系統能耗排序 2025（估前 80% 能源大戶）</div>
+                        </div>
+                        <div style="display:flex; gap:16px; justify-content:center; padding:12px 0;">
+                            <div class="legend-item"><span class="legend-dot" style="background:#00B0FF;"></span><span>SEU 設備</span></div>
+                            <div class="legend-item"><span class="legend-dot" style="background:#4a5568;"></span><span>非 SEU</span></div>
+                            <div class="legend-item"><span class="legend-dot" style="background:#F1DE75;"></span><span>80% 界線</span></div>
+                        </div>
+                        <div id="paretoChart" style="flex:1; min-height:300px;"></div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- =============================================
+                 BLOCK 5：能流分析
+            ============================================= -->
+            <section class="module-section" style="margin-bottom: 24px;">
+                <div class="module-section-header">
+                    <div class="module-num">5</div>
+                    <span class="module-title">能流分析</span>
+                    <span class="module-desc">全廠能源流動路徑 × 各栋別用電分配 × 損耗定位</span>
+                </div>
+
+                <div class="iwa-frontend-card">
+                    <div class="card-header">
+                        <div class="card-title">工廠全局能流圖（桑基圖）</div>
+                    </div>
+                    <div id="sankeyChart" class="sankey-wrap"></div>
+                </div>
+
+                <!-- 各棟用電彙整 -->
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;">
+                    <div class="iwa-frontend-card" style="padding: 14px 16px;">
+                        <div class="type-label-l text-sub" style="margin-bottom:6px;">廠房 A</div>
+                        <div class="type-display-s text-white">1,842 <span class="type-caption-m text-sub">MWh</span></div>
+                        <div class="progress-bg"><div class="progress-bar" style="width:62%;background:#00B0FF;"></div></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">62.0% 佔比</div>
+                    </div>
+                    <div class="iwa-frontend-card" style="padding: 14px 16px;">
+                        <div class="type-label-l text-sub" style="margin-bottom:6px;">廠房 C</div>
+                        <div class="type-display-s text-white">486 <span class="type-caption-m text-sub">MWh</span></div>
+                        <div class="progress-bg"><div class="progress-bar" style="width:16%; background:#A6FFB2;"></div></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">16.4% 佔比</div>
+                    </div>
+                    <div class="iwa-frontend-card" style="padding: 14px 16px;">
+                        <div class="type-label-l text-sub" style="margin-bottom:6px;">宿舍 A</div>
+                        <div class="type-display-s text-white">310 <span class="type-caption-m text-sub">MWh</span></div>
+                        <div class="progress-bg"><div class="progress-bar" style="width:10%; background:#5CC736;"></div></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">10.5% 佔比</div>
+                    </div>
+                    <div class="iwa-frontend-card" style="padding: 14px 16px;">
+                        <div class="type-label-l text-sub" style="margin-bottom:6px;">宿舍 B</div>
+                        <div class="type-display-s text-white">195 <span class="type-caption-m text-sub">MWh</span></div>
+                        <div class="progress-bg"><div class="progress-bar" style="width:7%; background:#F1DE75;"></div></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">6.6% 佔比</div>
+                    </div>
+                    <div class="iwa-frontend-card" style="padding: 14px 16px;">
+                        <div class="type-label-l text-sub" style="margin-bottom:6px;">輔房棟</div>
+                        <div class="type-display-s text-white">133 <span class="type-caption-m text-sub">MWh</span></div>
+                        <div class="progress-bg"><div class="progress-bar" style="width:5%; background:#f97316;"></div></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">4.5% 佔比</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- =============================================
+                 BLOCK 6：能效平衡與優化（AI 異常分析報告）
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">6</div>
+                    <span class="module-title">能效平衡與優化</span>
+                    <span class="module-desc">廠A AI 用電異常診斷報告 × 基準分析 × 優化建議</span>
+                </div>
+
+                <!-- AI 報告標題列 -->
+                <div class="ai-report-header">
+                    <i class="fa-solid fa-robot" style="font-size:22px;flex-shrink:0;"></i>
+                    <div class="type-body-m-medium text-white">智慧工廠 AI 專業能源異常分析報告 — 廠A (2026/04/01–04/14)</div>
+                </div>
+
+                <!-- 3 張歸納卡 -->
+                <div class="anomaly-grid">
+
+                    <!-- Card 1：夜間排程異常 -->
+                    <div class="anomaly-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div class="type-label-xl text-white">夜間排程異常</div>
+                            <span class="sbadge sbadge-red">嚴重</span>
+                        </div>
+                        <div class="type-display-s" style="color:var(--color-statusHigh);margin:10px 0 4px;">+75%</div>
+                        <div class="type-caption-m text-sub">04/03 凌晨高載 → 急降</div>
+                    </div>
+
+                    <!-- Card 2：生產時段異常 -->
+                    <div class="anomaly-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div class="type-label-xl text-white">生產時段異常</div>
+                            <span class="sbadge sbadge-orange">警告</span>
+                        </div>
+                        <div class="type-display-s" style="color:var(--color-statusWarn);margin:10px 0 4px;">−45%</div>
+                        <div class="type-caption-m text-sub">04/04–05 停線 ＋ 設備震盪</div>
+                    </div>
+
+                    <!-- Card 3：長期趨勢 -->
+                    <div class="anomaly-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div class="type-label-xl text-white">長期能效惡化</div>
+                            <span class="sbadge sbadge-blue">中期風險</span>
+                        </div>
+                        <div class="type-display-s" style="color:var(--color-accentPrimary);margin:10px 0 4px;">+24%</div>
+                        <div class="type-caption-m text-sub">8 天峰值持續攀升</div>
+                    </div>
+
+                </div>
+
+                <!-- 異常用電折線圖 -->
+                <div class="iwa-frontend-card">
+                    <div class="card-header">
+                        <div class="card-title">廠A 4月用電異常事件時序圖（kWh/h）</div>
+                        <span class="type-caption-m text-sub">紅色標記 = 異常時段</span>
+                    </div>
+                    <div id="anomalyChart" style="height:200px;"></div>
+                </div>
+            </section>
+
+            <!-- =============================================
+                 BLOCK 7：用能與碳排放預算管理
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">7</div>
+                    <span class="module-title">用能與碳排放預算管理</span>
+                    <span class="module-desc">年度配額管控 × 月度趨勢 × AI 超排預警 × 車間消耗榜</span>
+                </div>
+
+                <div class="grid-kpi4">
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">年度碳配額總量</div>
+                        <div class="type-display-s text-white">150,000 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">政府核發基準值</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">累計已消耗</div>
+                        <div class="type-display-s text-white">112,450 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                        <div class="progress-container">
+                            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:74.9%;background:var(--color-accentPrimary);"></div></div>
+                            <div class="progress-labels"><span>佔比 74.9%</span><span>剩餘 25.1%</span></div>
+                        </div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">當前可用餘額</div>
+                        <div class="type-display-s text-white">37,550 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">折合碳資產約估 <span>¥ 2,628,500</span></div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">AI 預測年末結算狀態</div>
+                        <div class="type-display-s text-white">預計超排 4.2%</div>
+                        <div class="type-caption-m" style="color:var(--color-statusHigh);margin-top:6px;"><i class="fa-solid fa-triangle-exclamation"></i> 結合排產計畫，面臨履約風險</div>
+                    </div>
+                </div>
+
+                <div class="grid-2col">
+                    <div class="iwa-frontend-card" style="display:flex;flex-direction:column;">
+                        <div class="card-header">
+                            <div class="card-title">月度預算執行趨勢 & AI 預測</div>
+                        </div>
+                        <div id="budgetTrendChart" style="min-height:240px; flex:1;"></div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="card-header">
+                            <div class="card-title">廠區 / 車間預算消耗榜</div>
+                        </div>
+                        <div>
+                            <table class="iwa-table">
+                                <thead><tr><th>用能單位</th><th>進度</th><th>用量 (tCO₂e)</th><th style="text-align:right;">狀態</th></tr></thead>
+                                <tbody>
+                                    <tr><td>注塑一車間</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar-bg" style="width:80px;"><div class="progress-bar-fill" style="width:92%;background:var(--color-statusHigh);"></div></div><span class="type-caption-m">92%</span></div></td><td>27,600</td><td style="text-align:right;"><span class="sbadge sbadge-red">嚴重超支</span></td></tr>
+                                    <tr><td>烤漆車間</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar-bg" style="width:80px;"><div class="progress-bar-fill" style="width:85%;background:var(--color-statusWarn);"></div></div><span class="type-caption-m">85%</span></div></td><td>25,500</td><td style="text-align:right;"><span class="sbadge sbadge-orange">警戒區間</span></td></tr>
+                                    <tr><td>沖壓二車間</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar-bg" style="width:80px;"><div class="progress-bar-fill" style="width:68%;background:var(--color-statusNormal);"></div></div><span class="type-caption-m">68%</span></div></td><td>20,400</td><td style="text-align:right;"><span class="sbadge sbadge-green">控制良好</span></td></tr>
+                                    <tr><td>組裝流水線</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar-bg" style="width:80px;"><div class="progress-bar-fill" style="width:65%;background:var(--color-statusNormal);"></div></div><span class="type-caption-m">65%</span></div></td><td>19,500</td><td style="text-align:right;"><span class="sbadge sbadge-green">控制良好</span></td></tr>
+                                    <tr><td>倉儲物流中心</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar-bg" style="width:80px;"><div class="progress-bar-fill" style="width:45%;background:var(--color-statusNormal);"></div></div><span class="type-caption-m">45%</span></div></td><td>13,500</td><td style="text-align:right;"><span class="sbadge sbadge-green">節餘優異</span></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- =============================================
+                 BLOCK 8：碳排放核算
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">8</div>
+                    <span class="module-title">碳排放核算</span>
+                    <span class="module-desc">ISO 14064-1:2018 / GHG Protocol × 排放源結構 × 強度追蹤 × 溯源清單</span>
+                </div>
+
+                <div class="grid-kpi4">
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">本年度累計總排放量</div>
+                        <div class="type-display-s text-white">125,450.8 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                        <div class="type-caption-m" style="color:var(--color-statusHigh);margin-top:6px;"><i class="fa-solid fa-arrow-up"></i> 較去年同期 +5.2%</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">類別一（範疇一）直接排放</div>
+                        <div class="type-display-s text-white">8,450.2 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">化石燃料燃燒、逸散排放</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">類別二（範疇二）輸入能源間接</div>
+                        <div class="type-display-s text-white">34,000.6 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">外購電力、外購蒸汽</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">類別三~六（範疇三）其他間接</div>
+                        <div class="type-display-s" style="color:var(--color-textMain);">83,000.0 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">上下游運輸、採購物品與服務</div>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1.5fr 2fr; gap:16px;">
+                    <div class="iwa-frontend-card">
+                        <div class="card-header"><div class="card-title">排放源結構分析</div></div>
+                        <div class="chart-with-legend">
+                            <div class="chart-container" style="width:300px; height:300px;">
+                                <div id="emissionSourceChart" style="width:100%;height:100%;"></div>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:12px; flex:1;">
+                                <div class="workshop-legend">
+                                    <div class="legend-item"><span class="legend-dot" style="background:#FF2D55;"></span><span>類別一 直接排放</span><span class="legend-value">8,450 tCO₂e</span></div>
+                                    <div class="legend-item"><span class="legend-dot" style="background:#00B0FF;"></span><span>類別二 輸入能源</span><span class="legend-value">34,001 tCO₂e</span></div>
+                                    <div class="legend-item"><span class="legend-dot" style="background:#F8B62D;"></span><span>類別三~六 其他</span><span class="legend-value">83,000 tCO₂e</span></div>
+                                </div>
+                                <div class="capacity-note">
+                                    <div class="capacity-note-item">
+                                        <span class="capacity-note-label">總排放量</span>
+                                        <span class="capacity-note-value">125,451<span class="unit">tCO₂e</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="card-header">
+                            <div class="card-title">碳排放總量 vs 排放強度追蹤</div>
+                        </div>
+                        <div id="emissionIntensityChart" style="height:240px;"></div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- =============================================
+                 BLOCK 9：碳足跡核算
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">9</div>
+                    <span class="module-title">碳足跡核算</span>
+                    <span class="module-desc">ISO 14067 / PAS 2050 × 產品 LCA × BOM 熱點分析 × 核算專案庫</span>
+                    <div class="iwa-dd2-wrap" id="dd-product" style="margin-left:auto;">
+                        <div class="iwa-dd2-trigger" onclick="toggleDD('dd-product')" style="min-width:280px;">
+                            <span class="dd2-text" id="dd-product-val" style="font-size:13px;">65W Surface Power Supply</span>
+                            <svg class="dd2-chevron" viewBox="0 0 32 32"><path d="M15.998 19.576l12.091-12.091c0.895-0.895 2.345-0.895 3.24 0s0.895 2.345 0 3.24l-13.322 13.322c-0.093 0.154-0.206 0.299-0.339 0.431-0.298 0.298-0.658 0.497-1.039 0.596-0.794 0.258-1.7 0.072-2.331-0.558-0.184-0.183-0.329-0.39-0.438-0.611l-13.19-13.19c-0.893-0.893-0.893-2.341 0-3.234s2.341-0.893 3.234 0l12.095 12.095z"/></svg>
+                        </div>
+                        <div class="iwa-dd2-panel">
+                            <div class="dd2-option selected" onclick="selectDD('dd-product','65W Surface Power Supply',this)"><span class="dd2-opt-text" style="font-size:13px;">65W Surface Power Supply</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c4)"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></g><defs><clipPath id="c4"><rect width="10" height="10" fill="white"/></clipPath></defs></svg></span></div>
+                            <div class="dd2-option" onclick="selectDD('dd-product','130W USB-C Power Adapter',this)"><span class="dd2-opt-text" style="font-size:13px;">130W USB-C Power Adapter</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c4)"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></g><defs><clipPath id="c4"><rect width="10" height="10" fill="white"/></clipPath></defs></svg></span></div>
+                            <div class="dd2-option" onclick="selectDD('dd-product','230W Smart AC Adapter',this)"><span class="dd2-opt-text" style="font-size:13px;">230W Smart AC Adapter</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#c4)"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></g><defs><clipPath id="c4"><rect width="10" height="10" fill="white"/></clipPath></defs></svg></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid-kpi4">
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">單件產品淨碳足跡 (Cradle-to-Gate)</div>
+                        <div class="type-display-s text-white">8.45 <span class="type-caption-m text-sub">kgCO₂e/unit</span></div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">綠電/綠證抵銷比例</div>
+                        <div class="type-display-s text-white">100 % <span class="type-caption-m text-sub">（製造階段）</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">已綁定 I-REC 批號 #99281</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">BOM 供應鏈數據覆蓋率</div>
+                        <div class="type-display-s" style="color:var(--color-textMain);">87.5 %</div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">實測 45% ／ 資料庫 EF 42.5%</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">生命週期核算標準</div>
+                        <div class="type-title-m text-white" style="line-height:1.5;">ISO 14067:2018<br>PAS 2050</div>
+                    </div>
+                </div>
+
+                <div class="grid-2col">
+                    <div class="iwa-frontend-card">
+                        <div class="card-header"><div class="card-title">產品全生命週期 (LCA) 碳足跡流向圖</div></div>
+                        <div id="lcaWaterfallChart" style="height:240px;"></div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="card-header"><div class="card-title">BOM 物料碳排熱點分析</div></div>
+                        <div id="bomTreemapChart" style="height:240px;"></div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- =============================================
+                 BLOCK 10：供應鏈碳管理
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">10</div>
+                    <span class="module-title">供應鏈碳管理</span>
+                    <span class="module-desc">2026 年度一階供應商 Tier-1 × 數據填報率 × 高碳排辨識 × 稽核清單</span>
+                </div>
+
+                <div class="grid-kpi4">
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">供應鏈風險預警</div>
+                        <div class="type-display-s" style="color:var(--color-statusHigh);">12 <span class="type-caption-m text-sub">家</span></div>
+                        <div class="type-caption-m" style="color:var(--color-statusHigh);margin-top:6px;">數據品質過低或拒絕提交</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">年度數據填報率</div>
+                        <div class="type-display-s text-white">74.2 %</div>
+                        <div class="progress-container">
+                            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:74.2%;background:var(--color-statusNormal);"></div></div>
+                            <div class="progress-labels"><span>95 家已繳交</span><span>33 家未填報</span></div>
+                        </div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">供應鏈通報碳排總量</div>
+                        <div class="type-display-s text-white">312,500 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">歸屬本廠責任佔比 <span>18.5%</span></div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">納管一階供應商總數</div>
+                        <div class="type-display-s text-white">128 <span class="type-caption-m text-sub">家</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">涵蓋 95% 採購金額</div>
+                    </div>
+                </div>
+
+                <div class="grid-2col">
+                    <div class="iwa-frontend-card">
+                        <div class="card-header"><div class="card-title">Top 5 高碳排供應商</div></div>
+                        <div id="supplierBarChart" style="height:220px;"></div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="card-header"><div class="card-title">年度數據審核狀態</div></div>
+                        <div style="display:flex; flex-direction:column; gap:12px; padding-top:4px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span class="legend-dot" style="background:var(--color-statusNormal);"></span>
+                                    <span class="type-label-l text-sub">審核通過</span>
+                                </div>
+                                <span class="type-title-l text-white">72 <span class="type-caption-m text-sub">家</span></span>
+                            </div>
+                            <div style="height:1px;background:var(--color-divider);"></div>
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span class="legend-dot" style="background:var(--color-indicator);"></span>
+                                    <span class="type-label-l text-sub">審核中</span>
+                                </div>
+                                <span class="type-title-l text-white">23 <span class="type-caption-m text-sub">家</span></span>
+                            </div>
+                            <div style="height:1px;background:var(--color-divider);"></div>
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span class="legend-dot" style="background:var(--color-statusWarn);"></span>
+                                    <span class="type-label-l text-sub">退回重填</span>
+                                </div>
+                                <span class="type-title-l text-white">21 <span class="type-caption-m text-sub">家</span></span>
+                            </div>
+                            <div style="height:1px;background:var(--color-divider);"></div>
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span class="legend-dot" style="background:var(--color-statusHigh);"></span>
+                                    <span class="type-label-l text-sub">未填報</span>
+                                </div>
+                                <span class="type-title-l text-white">12 <span class="type-caption-m text-sub">家</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- =============================================
+                 BLOCK 11：碳核查支撐
+            ============================================= -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <div class="module-num">11</div>
+                    <span class="module-title">碳核查支撐</span>
+                    <span class="module-desc">ISO 14064-1 數位核查 × 排放源佐證 × 特徵碼存證 × 查廠憑證總帳</span>
+                </div>
+
+                <div class="grid-kpi4">
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">應收集憑證總數</div>
+                        <div class="type-display-s text-white">1,425 <span class="type-caption-m text-sub">份</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">含電/氣費單、儀表校正單</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">已歸檔完成</div>
+                        <div class="type-display-s text-white">1,404 <span class="type-caption-m text-sub">份</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">資料完整且已生成特徵碼</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">待審核憑證</div>
+                        <div class="type-display-s" style="color:var(--color-textMain);">18 <span class="type-caption-m text-sub">份</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">格式比對中或等待主管簽核</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">憑證異常或缺漏</div>
+                        <div class="type-display-s text-white">3 <span class="type-caption-m text-sub">份</span></div>
+                        <div class="type-caption-m" style="color:var(--color-statusHigh);margin-top:6px;">2 份未上傳，1 份校正過期</div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- =============================================
+                 BLOCK 12：碳資產管理
+            ============================================= -->
+            <section class="module-section" style="margin-bottom:32px;">
+                <div class="module-section-header">
+                    <div class="module-num">12</div>
+                    <span class="module-title">碳資產管理</span>
+                    <span class="module-desc">全國碳市場 (CEA) 配額 × CCER 抵銷 × 碳價 AI 預測 × 履約操盤艙</span>
+                </div>
+
+                <div class="grid-kpi4">
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">廠內碳資產總估值</div>
+                        <div class="type-display-s" style="color:var(--color-textMain);">¥ 11,245,800</div>
+                        <div class="type-caption-m" style="color:var(--color-statusNormal);margin-top:6px;"><i class="fa-solid fa-arrow-trend-up"></i> 較上月增值 4.2%</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">2026 年度履約清繳倒數</div>
+                        <div class="type-display-s text-white">265 <span class="type-caption-m text-sub">天</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">截止日：2026/12/31</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">預測履約配額缺口</div>
+                        <div class="type-display-s" style="color:var(--color-textMain);">-5,200 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                        <div class="type-caption-m" style="color:var(--color-statusHigh);margin-top:6px;">年底預估將產生缺口</div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="type-label-l text-sub" style="margin-bottom:8px;">可用抵銷額度 (CCER/綠證)</div>
+                        <div class="type-display-s text-white">2,500 <span class="type-caption-m text-sub">噸/張</span></div>
+                        <div class="type-caption-m text-sub" style="margin-top:6px;">依法規最多可抵銷 5% 履約配額</div>
+                    </div>
+                </div>
+
+                <div class="grid-2col">
+                    <div class="iwa-frontend-card">
+                        <div class="card-header">
+                            <div class="card-title">CEA 碳價歷史均價 & AI 預測趨勢 (¥/噸)</div>
+                        </div>
+                        <div id="carbonPriceChart" style="height:220px;"></div>
+                    </div>
+                    <div class="iwa-frontend-card">
+                        <div class="card-header">
+                            <div class="card-title">廠內碳資產庫存結構</div>
+                        </div>
+                        <div id="carbonPortfolioChart" style="height:220px;"></div>
+                    </div>
+                </div>
+
+
+            </section>
+
+        </div><!-- /content-wrapper -->
+    </main>
+</div>
+
+<script>
+/* ---- Dropdown Type2 ---- */
+function toggleDD(id) {
+    const wrap = document.getElementById(id);
+    const isOpen = wrap.classList.contains('open');
+    document.querySelectorAll('.iwa-dd2-wrap.open').forEach(w => w.classList.remove('open'));
+    if (!isOpen) wrap.classList.add('open');
+}
+function selectDD(id, value, el) {
+    document.getElementById(id + '-val').textContent = value;
+    el.closest('.iwa-dd2-panel').querySelectorAll('.dd2-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById(id).classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.iwa-dd2-wrap')) {
+        document.querySelectorAll('.iwa-dd2-wrap.open').forEach(w => w.classList.remove('open'));
+    }
+});
+// ==========================================
+// 1. 側邊欄邏輯
+// ==========================================
+const sidebar = document.getElementById('mainSidebar');
+const mainPinBtn = document.getElementById('sidebarPinBtn');
+const panels = document.querySelectorAll('.submenu-panel');
+const menuItems = document.querySelectorAll('.menu-item[data-target]');
+let isMainSidebarPinned = true;
+let globalHideTimeout = null;
+
+mainPinBtn.addEventListener('click', () => {
+    isMainSidebarPinned = !isMainSidebarPinned;
+    if (isMainSidebarPinned) {
+        sidebar.classList.remove('mini');
+        mainPinBtn.classList.add('active');
+    } else {
+        sidebar.classList.add('mini');
+        mainPinBtn.classList.remove('active');
+        panels.forEach(p => p.classList.remove('open'));
+    }
+});
+sidebar.addEventListener('mouseenter', () => {
+    clearTimeout(globalHideTimeout);
+    if (!isMainSidebarPinned) sidebar.classList.remove('mini');
+});
+sidebar.addEventListener('mouseleave', () => {
+    clearTimeout(globalHideTimeout);
+    globalHideTimeout = setTimeout(() => {
+        const hasPinnedPanel = Array.from(panels).some(p => p.dataset.pinned === 'true');
+        if (!isMainSidebarPinned) {
+            if (!hasPinnedPanel) {
+                sidebar.classList.add('mini');
+                panels.forEach(p => p.classList.remove('open'));
+            } else {
+                sidebar.classList.remove('mini');
+                panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+            }
+        } else {
+            panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+        }
+        menuItems.forEach(item => { if(item.dataset.target !== 'dashboard') item.classList.remove('active'); });
+    }, 1000);
+});
+menuItems.forEach(item => {
+    item.addEventListener('mouseenter', () => {
+        const targetId = item.dataset.target;
+        if(targetId === 'dashboard') return;
+        menuItems.forEach(m => m.classList.remove('active'));
+        item.classList.add('active');
+        panels.forEach(p => {
+            if(p.id === targetId) p.classList.add('open');
+            else if(p.dataset.pinned !== 'true') p.classList.remove('open');
+        });
+    });
+});
+panels.forEach(panel => {
+    const pinBtn = panel.querySelector('.pin-btn');
+    pinBtn.addEventListener('click', () => {
+        const isPinned = panel.dataset.pinned === 'true';
+        panel.dataset.pinned = !isPinned;
+        pinBtn.classList.toggle('active', !isPinned);
+    });
+});
+
+// ==========================================
+// 2. 即時時鐘
+// ==========================================
+function updateClock() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    document.getElementById('realtime-clock').textContent =
+        `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+updateClock(); setInterval(updateClock, 1000);
+
+// ==========================================
+// 3. 全螢幕
+// ==========================================
+document.getElementById('btn-fullscreen').addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().then(() => document.body.classList.add('is-fullscreen'));
+    else document.exitFullscreen();
+});
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) document.body.classList.remove('is-fullscreen');
+    setTimeout(() => allCharts.forEach(c => c.resize()), 350);
+});
+window.addEventListener('resize', () => allCharts.forEach(c => c.resize()));
+
+// ==========================================
+// 4. Block 1 – 各廠區佔比條
+// ==========================================
+const areaData = [
+    { label: '廠A', pct: 87.88, color: '#00B0FF' },
+    { label: '廠C', pct: 3.20,  color: '#F8B62D' },
+    { label: '宿舍A', pct: 5.22, color: '#5CC736' },
+    { label: '宿舍C', pct: 1.28, color: '#FF2D55' },
+    { label: '輔房',  pct: 0.28, color: 'rgba(255,255,255,0.35)' },
+];
+const areaContainer = document.getElementById('areaRows');
+areaData.forEach(d => {
+    areaContainer.innerHTML += `
+        <div class="area-item">
+            <div class="area-label">
+                <span class="text-sm text-white">${d.label}</span>
+                <span class="type-label-m" style="color:var(--color-textMain);">${d.pct}%</span>
+            </div>
+            <div class="area-bar-bg">
+                <div class="area-bar-fill" style="width:${d.pct}%; background:${d.color};"></div>
+            </div>
+        </div>`;
+});
+
+// ==========================================
+// 5. ECharts 初始化
+// ==========================================
+const allCharts = [];
+
+// --- Block 1: 主量儀錶 ---
+// gaugeMain & gaugePct 已替換為純數值顯示
+
+// --- Block 1: 每小時用電量柱狀圖 ---
+let _hourlyPeriod = '今日';
+function _hourlyDateLabel(period) {
+    const now = new Date();
+    const fmt = d => `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+    if (period === '今日') return fmt(now);
+    if (period === '昨日') return fmt(new Date(now - 86400000));
+    if (period === '本週') {
+        const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay()+6)%7));
+        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+        return `${fmt(mon)} ~ ${fmt(sun)}`;
+    }
+    return period;
+}
+const hourlyBar = echarts.init(document.getElementById('hourlyBar'));
+const hourlyHours = ['00','02','04','06','08','10','12','14','16','18','20','22'];
+const hourlyVals = [820,690,740,910,1280,1950,2640,3015,2890,2310,1760,1220];
+hourlyBar.setOption({
+    grid: { top: 36, right: 65, bottom: 30, left: 60 },
+    tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+            type: 'shadow',
+            shadowStyle: { color: 'rgba(255,255,255,0.04)' }
+        },
+        backgroundColor: 'rgba(33,40,49,0.95)',
+        borderColor: 'rgba(255,255,255,0.50)',
+        borderWidth: 0.5,
+        textStyle: { color: '#fff', fontSize: 12 },
+        formatter: function(params) {
+            const p = params[0];
+            return `<div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:2px;">${_hourlyDateLabel(_hourlyPeriod)}</div>
+                    <div style="font-weight:600;margin-bottom:6px;">${p.axisValueLabel}h</div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#00B0FF;flex-shrink:0;"></span>
+                        <span style="color:rgba(255,255,255,0.70);">用電量</span>
+                        <span style="font-weight:600;margin-left:auto;padding-left:16px;">${p.value} kWh</span>
+                    </div>`;
+        }
+    },
+    xAxis: {
+        type: 'category', data: hourlyHours,
+        axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 12, formatter: v => v + 'h' }
+    },
+    yAxis: {
+        type: 'value', name: 'kWh',
+        nameTextStyle: { color: 'rgba(255,255,255,0.50)', fontSize: 11 },
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+        axisLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 11 }
+    },
+    series: [{
+        type: 'bar', data: hourlyVals, barMaxWidth: 32,
+        itemStyle: {
+            color: new echarts.graphic.LinearGradient(0,0,0,1,[
+                { offset: 0, color: '#00B0FF' },
+                { offset: 1, color: 'rgba(0,103,255,0.3)' }
+            ]),
+            borderRadius: [4,4,0,0]
+        },
+        emphasis: {
+            focus: 'self',
+            itemStyle: { color: '#00B0FF' }
+        },
+        blur: {
+            itemStyle: { opacity: 0.35 }
+        },
+        markLine: {
+            symbol: ['none', 'none'],
+            data: [{ type: 'average', name: '均值' }],
+            lineStyle: { color: '#F8B62D', type: 'dashed' },
+            label: { color: '#F8B62D' }
+        }
+    }]
+});
+allCharts.push(hourlyBar);
+document.querySelectorAll('#dd-hourly .dd2-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+        _hourlyPeriod = opt.querySelector('.dd2-opt-text').textContent.trim();
+    });
+});
+
+// --- Block 2: 消費量趨勢折線 ---
+const consumptionTrend = echarts.init(document.getElementById('consumptionTrend'));
+const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+consumptionTrend.setOption({
+    grid: { top: 40, right: 20, bottom: 25, left: 60 },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(255,255,255,0.04)' } }, backgroundColor: 'rgba(33,40,49,0.95)', borderColor: 'rgba(255,255,255,0.50)', borderWidth: 0.5, textStyle: { color: '#fff' } },
+    legend: { data: ['2025年','2024年'], icon: 'circle', textStyle: { color: 'rgba(255,255,255,0.70)', fontSize: 12 }, left: 'center', top: 0, itemWidth: 8, itemHeight: 8 },
+    xAxis: {
+        type: 'category', data: months,
+        axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 11 }
+    },
+    yAxis: {
+        type: 'value', name: 'tce',
+        nameTextStyle: { color: 'rgba(255,255,255,0.50)', fontSize: 11 },
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+        axisLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 11 }
+    },
+    series: [
+        {
+            name: '2025年', type: 'line', smooth: true, symbol: 'none',
+            data: [220,245,310,285,320,340,360,315,298,305,290,280],
+            itemStyle: { color: '#00B0FF' },
+            areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(0,103,255,0.25)'},{offset:1,color:'rgba(0,103,255,0)'}]) },
+            emphasis: { focus: 'self' }, blur: { lineStyle: { opacity: 0.2 } }
+        },
+        {
+            name: '2024年', type: 'line', smooth: true, symbol: 'none',
+            data: [195,220,280,260,295,310,330,290,270,285,268,260],
+            lineStyle: { type: 'dashed' },
+            itemStyle: { color: 'rgba(255,255,255,0.70)' },
+            emphasis: { focus: 'self' }, blur: { lineStyle: { opacity: 0.2 } }
+        }
+    ]
+});
+allCharts.push(consumptionTrend);
+
+// --- Block 3: 能源結構甜甜圈 ---
+const donutChart = echarts.init(document.getElementById('donutChart'));
+donutChart.setOption({
+    tooltip: { trigger: 'item', backgroundColor: 'rgba(33,40,49,0.95)', borderColor: 'rgba(255,255,255,0.50)', borderWidth: 0.5, textStyle: { color: '#fff' },
+        formatter: '{b}: {c} tce ({d}%)' },
+    legend: { show: false },
+    series: [{
+        type: 'pie', radius: ['55%','72%'],
+        center: ['50%','50%'],
+        avoidLabelOverlap: false,
+        label: { show: false },
+        labelLine: { show: false },
+        emphasis: { label: { show: true, fontSize: 13, fontWeight: 'bold', color: '#fff' } },
+        data: [
+            { value: 308,  name: '國網電',   itemStyle: { color: '#00B0FF' } },
+            { value: 166,  name: '光伏',     itemStyle: { color: '#A6FFB2' } },
+            { value: 162,  name: '儲能站',   itemStyle: { color: '#F1DE75' } },
+            { value: 2286, name: '綠電 PPA', itemStyle: { color: '#5CC736' } },
+            { value: 326,  name: '天然氣',   itemStyle: { color: '#F8B62D' } }
+        ]
+    }],
+    graphic: [{
+        type: 'group', left: 'center', top: 'middle',
+        children: [
+            { type: 'text', top: -32, style: { text: '折標煤量', fill: 'rgba(255,255,255,0.50)', fontSize: 12, fontWeight: 400, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui', textAlign: 'center' } },
+            { type: 'text', top: -12, style: { text: '3,248',   fill: '#ffffff',               fontSize: 28, fontWeight: 600, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui', textAlign: 'center' } },
+            { type: 'text', top: 24,  style: { text: 'tce',     fill: 'rgba(255,255,255,0.50)', fontSize: 12, fontWeight: 400, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui', textAlign: 'center' } }
+        ]
+    }]
+});
+allCharts.push(donutChart);
+
+// --- Block 3: 年度堆疊柱狀圖 ---
+const stackedBar = echarts.init(document.getElementById('stackedBar'));
+stackedBar.setOption({
+    grid: { top: 40, right: 20, bottom: 35, left: 55 },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(255,255,255,0.04)' } }, backgroundColor: 'rgba(33,40,49,0.95)', borderColor: 'rgba(255,255,255,0.50)', borderWidth: 0.5, textStyle: { color: '#fff' } },
+    legend: {
+        data: ['國網電','光伏','儲能站','綠電 PPA','天然氣'],
+        icon: 'circle', textStyle: { color: 'rgba(255,255,255,0.70)', fontSize: 12 }, left: 'center', top: 0, itemWidth: 8, itemHeight: 8
+    },
+    xAxis: {
+        type: 'category', data: ['2022 年','2023','2024','2025'],
+        axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: { color: 'rgba(255,255,255,0.70)' }
+    },
+    yAxis: {
+        type: 'value', max: 100, axisLabel: { color: 'rgba(255,255,255,0.70)', formatter: '{value}%' },
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+    },
+    series: [
+        { name: '國網電',  type: 'bar', stack: 'total', data: [77.5, 69.9, 56.0, 9.5],  itemStyle: { color: '#00B0FF' }, emphasis: { focus: 'series' }, blur: { itemStyle: { opacity: 0.35 } } },
+        { name: '光伏',   type: 'bar', stack: 'total', data: [0,    11.0, 23.3, 5.1],  itemStyle: { color: '#A6FFB2' }, emphasis: { focus: 'series' }, blur: { itemStyle: { opacity: 0.35 } } },
+        { name: '儲能站', type: 'bar', stack: 'total', data: [0,    0,    5.3,  5.1],  itemStyle: { color: '#F1DE75' }, emphasis: { focus: 'series' }, blur: { itemStyle: { opacity: 0.35 } } },
+        { name: '綠電 PPA',type: 'bar',stack: 'total', data: [0,    0,    0,    70.4], itemStyle: { color: '#5CC736' }, emphasis: { focus: 'series' }, blur: { itemStyle: { opacity: 0.35 } } },
+        { name: '天然氣', type: 'bar', stack: 'total', data: [10.7, 10.8, 11.0, 10.5], itemStyle: { color: '#F8B62D' }, emphasis: { focus: 'series' }, blur: { itemStyle: { opacity: 0.35 } } }
+    ]
+});
+allCharts.push(stackedBar);
+
+// --- Block 4: 帕雷托圖 ---
+const paretoChart = echarts.init(document.getElementById('paretoChart'));
+const sysLabels = Array.from({length:23}, (_,i) => `系統${i+1}`);
+const sysVals   = [455,430,328,312,292,278,248,215,182,172,152,135, 98,88,76,65,55,48,42,38,30,24,18];
+const isSEU     = sysVals.map((_,i) => i < 12);
+// 計算累計百分比
+const total = sysVals.reduce((a,b)=>a+b,0);
+let cumSum = 0;
+const cumPct = sysVals.map(v => { cumSum += v; return +(cumSum/total*100).toFixed(1); });
+
+paretoChart.setOption({
+    grid: { top: 44, right: 64, bottom: 40, left: 60 },
+    tooltip: {
+        trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(255,255,255,0.04)' } },
+        backgroundColor: 'rgba(33,40,49,0.95)', borderColor: 'rgba(255,255,255,0.50)', borderWidth: 0.5, textStyle: { color: '#fff' }
+    },
+    xAxis: {
+        type: 'category', data: sysLabels,
+        axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 10, rotate: 30 }
+    },
+    yAxis: [
+        {
+            type: 'value', name: 'tce',
+            nameTextStyle: { color: 'rgba(255,255,255,0.50)', fontSize: 11 },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+            axisLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 11 }
+        },
+        {
+            type: 'value', name: '累計%', min: 0, max: 100,
+            nameTextStyle: { color: 'rgba(255,255,255,0.50)', fontSize: 11 },
+            splitLine: { show: false },
+            axisLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 11, formatter: '{value}%' }
+        }
+    ],
+    series: [
+        {
+            name: '年耗能', type: 'bar', barMaxWidth: 28,
+            data: sysVals.map((v,i) => ({
+                value: v,
+                itemStyle: { color: isSEU[i] ? '#00B0FF' : '#4a5568', borderRadius: [3,3,0,0] }
+            })),
+            emphasis: { focus: 'self' }, blur: { itemStyle: { opacity: 0.35 } }
+        },
+        {
+            name: '累計佔比', type: 'line', yAxisIndex: 1, smooth: false,
+            data: cumPct, symbol: 'circle', symbolSize: 5,
+            itemStyle: { color: '#F1DE75' },
+            lineStyle: { color: '#F1DE75', width: 2 },
+            emphasis: { focus: 'self' }, blur: { lineStyle: { opacity: 0.2 } },
+            markLine: {
+                symbol: ['none', 'none'],
+                data: [{ yAxis: 80, yAxisIndex: 1 }],
+                lineStyle: { color: '#F1DE75', type: 'dashed', width: 1 },
+                label: { formatter: '80% SEU 界線', color: '#F1DE75', position: 'end' }
+            }
+        }
+    ]
+});
+allCharts.push(paretoChart);
+
+// --- Block 5: 桑基圖 ---
+const sankeyChart = echarts.init(document.getElementById('sankeyChart'));
+sankeyChart.setOption({
+    tooltip: {
+        trigger: 'item', triggerOn: 'mousemove',
+        backgroundColor: 'rgba(33,40,49,0.95)', textStyle: { color: '#fff' }
+    },
+    series: {
+        type: 'sankey', layout: 'none', emphasis: { focus: 'adjacency' }, nodeAlign: 'left',
+        data: [
+            { name: '同廠廠總用電', itemStyle: { color: '#00B0FF' } },
+            { name: '廠C總用電', itemStyle: { color: '#24BEBD' } },
+            { name: '廠房A總用電', itemStyle: { color: '#00B0FF' } },
+            { name: '宿舍A總用電', itemStyle: { color: '#5CC736' } },
+            { name: '宿舍B總用電', itemStyle: { color: '#F1DE75' } },
+            { name: '廠A機電系統', itemStyle: { color: '#409EF3' } },
+            { name: '廠A生產設備', itemStyle: { color: '#8AC1FF' } },
+            { name: 'A1F生產用電', itemStyle: { color: '#93c5fd' } },
+            { name: 'A2F生產用電', itemStyle: { color: '#93c5fd' } },
+            { name: 'A3F生產用電', itemStyle: { color: '#93c5fd' } },
+            { name: 'A4F生產用電', itemStyle: { color: '#93c5fd' } },
+            { name: 'A空調系統', itemStyle: { color: '#38bdf8' } },
+            { name: 'A空壓系統', itemStyle: { color: '#22d3ee' } },
+            { name: '廠C機電', itemStyle: { color: '#0e7490' } },
+            { name: '廠C生產', itemStyle: { color: '#155e75' } },
+            { name: '照明總表', itemStyle: { color: '#A6FFB2' } },
+        ],
+        links: [
+            { source: '同廠廠總用電', target: '廠C總用電',    value: 486 },
+            { source: '同廠廠總用電', target: '廠房A總用電',  value: 1842 },
+            { source: '同廠廠總用電', target: '宿舍A總用電',  value: 310 },
+            { source: '同廠廠總用電', target: '宿舍B總用電',  value: 195 },
+            { source: '廠房A總用電',  target: '廠A機電系統',  value: 920 },
+            { source: '廠房A總用電',  target: '廠A生產設備',  value: 800 },
+            { source: '廠房A總用電',  target: '照明總表',     value: 122 },
+            { source: '廠A機電系統',  target: 'A空調系統',    value: 560 },
+            { source: '廠A機電系統',  target: 'A空壓系統',    value: 360 },
+            { source: '廠A生產設備',  target: 'A1F生產用電',  value: 200 },
+            { source: '廠A生產設備',  target: 'A2F生產用電',  value: 210 },
+            { source: '廠A生產設備',  target: 'A3F生產用電',  value: 195 },
+            { source: '廠A生產設備',  target: 'A4F生產用電',  value: 195 },
+            { source: '廠C總用電',   target: '廠C機電',      value: 240 },
+            { source: '廠C總用電',   target: '廠C生產',      value: 246 },
+        ],
+        label: { color: '#ffffff', fontSize: 11 },
+        lineStyle: { color: 'source', curveness: 0.5, opacity: 0.25 }
+    }
+});
+// ==========================================
+// Blocks 6–12 ECharts
+// ==========================================
+
+// --- Block 6: 異常用電折線圖 ---
+const anomalyChart = echarts.init(document.getElementById('anomalyChart'));
+const aprHours = [];
+for(let d=1; d<=14; d++) for(let h=0; h<24; h+=3) aprHours.push(`4/${d} ${String(h).padStart(2,'0')}h`);
+// Generate synthetic data based on anomaly report
+const anomalyData = aprHours.map((lbl, i) => {
+    const day = Math.floor(i/8)+1, hr = (i%8)*3;
+    if(day===3 && hr<=3) return 138 + Math.random()*6;
+    if(day===3 && hr>3 && hr<=6) return 90 + Math.random()*10;
+    if(day===4 && hr>=6 && hr<=12) return 52 + Math.random()*8;
+    if(day===5 && hr>=6 && hr<=15) return hr%6<3 ? 110+Math.random()*10 : 88+Math.random()*8;
+    const base = 70 + day*3.5;
+    if(hr>=0 && hr<6) return 65+Math.random()*20;
+    if(hr>=6 && hr<10) return base-10+Math.random()*20;
+    return base+Math.random()*30;
+});
+// Mark anomaly zones
+const markAreas = [
+    [{ name:'①凌晨高載', xAxis:'4/3 00h' },{ xAxis:'4/3 03h' }],
+    [{ name:'②急劇下降', xAxis:'4/3 03h' },{ xAxis:'4/3 06h' }],
+    [{ name:'③白天低載', xAxis:'4/4 06h' },{ xAxis:'4/4 12h' }],
+    [{ name:'④震盪', xAxis:'4/5 06h' },{ xAxis:'4/5 15h' }],
+];
+anomalyChart.setOption({
+    grid: { top: 24, right: 80, bottom: 30, left: 55 },
+    tooltip: {
+        trigger:'axis',
+        axisPointer:{ type:'shadow', shadowStyle:{ color:'rgba(255,255,255,0.04)' } },
+        backgroundColor:'rgba(33,40,49,0.95)', borderColor:'rgba(255,255,255,0.50)', borderWidth:0.5,
+        textStyle:{ color:'#fff', fontSize:12, fontFamily:'"PingFang TC","Microsoft JhengHei",system-ui' },
+        formatter: params => {
+            const p = params[0];
+            const xVal = p.name;
+            const val = Math.round(p.value);
+            const curIdx = aprHours.indexOf(xVal);
+            const zone = markAreas.find(z => {
+                const si = aprHours.indexOf(z[0].xAxis);
+                const ei = aprHours.indexOf(z[1].xAxis);
+                return curIdx >= si && curIdx < ei;
+            });
+            const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#00B0FF;margin-right:6px;vertical-align:middle;flex-shrink:0;"></span>`;
+            let html = `<div style="margin-bottom:6px;color:rgba(255,255,255,0.70);">${xVal}</div>${dot}${val} kWh`;
+            if (zone) html += `<br/><span style="color:#FF2D55;font-size:11px;margin-top:4px;display:block;">⚠ ${zone[0].name}</span>`;
+            return html;
+        }
+    },
+    xAxis: {
+        type:'category', data: aprHours,
+        axisLine:{show:false}, axisTick:{show:false},
+        axisLabel:{
+            color:'rgba(255,255,255,0.50)', fontSize:10,
+            interval: 7,
+            formatter: v => v.split(' ')[0]
+        }
+    },
+    yAxis: {
+        type:'value',
+        name:'kWh', nameLocation:'end',
+        nameTextStyle:{ color:'rgba(255,255,255,0.50)', fontSize:10, align:'right', padding:[0,4,0,0] },
+        splitLine:{lineStyle:{color:'rgba(255,255,255,0.05)'}},
+        axisLabel:{color:'rgba(255,255,255,0.50)', fontSize:10}
+    },
+    series: [{
+        type:'line', data: anomalyData, smooth:true, symbol:'none',
+        itemStyle:{ color:'#00B0FF' },
+        lineStyle:{ color:'#00B0FF', width:2 },
+        areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(0,176,255,0.20)'},{offset:1,color:'rgba(0,176,255,0)'}])},
+        emphasis:{ focus:'self' }, blur:{ lineStyle:{ opacity:0.2 } },
+        markArea:{
+            silent: true,
+            data: [
+                /* 正常範圍帶 */
+                [{ yAxis:65, itemStyle:{color:'rgba(92,199,54,0.06)'}, label:{show:false} }, { yAxis:155 }],
+                /* 異常事件標記 */
+                ...markAreas.map(z => [
+                    { ...z[0], itemStyle:{color:'rgba(255,45,85,0.10)'} },
+                    { ...z[1] }
+                ])
+            ],
+            label:{ show: false }
+        },
+        markLine:{
+            symbol:'none',
+            data:[
+                { yAxis:65,  name:'正常下限', lineStyle:{color:'#5CC736', type:'dashed', width:1}, label:{color:'rgba(92,199,54,0.80)',  formatter:'65 kWh', position:'end', fontSize:10} },
+                { yAxis:155, name:'正常上限', lineStyle:{color:'#5CC736', type:'dashed', width:1}, label:{color:'rgba(92,199,54,0.80)',  formatter:'155 kWh', position:'end', fontSize:10} },
+                { yAxis:90,  name:'夜間警報', lineStyle:{color:'#FF2D55', type:'dashed', width:1}, label:{color:'rgba(255,45,85,0.90)', formatter:'警報 90 kWh', position:'end', fontSize:10} }
+            ]
+        }
+    }]
+});
+allCharts.push(anomalyChart);
+
+// --- Block 7: 月度預算趨勢 ---
+const budgetTrendChart = echarts.init(document.getElementById('budgetTrendChart'));
+budgetTrendChart.setOption({
+    grid:{top:40,right:20,bottom:25,left:60},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,0.04)'}},backgroundColor:'rgba(33,40,49,0.95)',borderColor:'rgba(255,255,255,0.50)',borderWidth:0.5,textStyle:{color:'#fff'}},
+    legend:{data:['預算紅線','實際消耗','AI預測'],icon:'circle',textStyle:{color:'rgba(255,255,255,0.70)',fontSize:12},left:'center',top:0,itemWidth:8,itemHeight:8},
+    xAxis:{type:'category',data:['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:10}},
+    yAxis:{type:'value',name:'tCO₂e',splitLine:{lineStyle:{color:'rgba(255,255,255,0.05)'}},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:10},nameTextStyle:{color:'#64748b',fontSize:10}},
+    series:[
+        {name:'預算紅線',type:'line',data:Array(12).fill(12500),itemStyle:{color:'#F84378'},lineStyle:{width:2,color:'#F84378'},symbol:'none',emphasis:{focus:'self'},blur:{lineStyle:{opacity:0.2}}},
+        {name:'實際消耗',type:'bar',barWidth:'40%',data:[11000,9500,13000,12800,14000,13500,15000,14200,9450,null,null,null],itemStyle:{color:'#00B0FF',borderRadius:[2,2,0,0]},emphasis:{focus:'self'},blur:{itemStyle:{opacity:0.35}}},
+        {name:'AI預測',type:'line',smooth:true,data:[null,null,null,null,null,null,null,null,9450,14800,15200,16000],itemStyle:{color:'#F1DE75'},lineStyle:{width:2,type:'dashed',color:'#F1DE75'},symbol:'circle',symbolSize:5,emphasis:{focus:'self'},blur:{lineStyle:{opacity:0.2}}}
+    ]
+});
+allCharts.push(budgetTrendChart);
+
+// --- Block 8: 排放源結構餅圖 ---
+const emissionSourceChart = echarts.init(document.getElementById('emissionSourceChart'));
+emissionSourceChart.setOption({
+    tooltip:{trigger:'item',confine:true,backgroundColor:'rgba(33,40,49,0.95)',borderColor:'rgba(255,255,255,0.50)',borderWidth:0.5,textStyle:{color:'#fff'},formatter:'{b}: {c} tCO₂e ({d}%)'},
+    legend:{ show: false },
+    series:[{
+        type:'pie',radius:['55%','72%'],center:['50%','50%'],
+        label:{show:false},labelLine:{show:false},
+        emphasis:{label:{show:true,fontSize:13,fontWeight:'bold',color:'#fff'}},
+        data:[
+            {value:8450, name:'類別一 直接排放',itemStyle:{color:'#FF2D55'}},
+            {value:34001,name:'類別二 輸入能源',itemStyle:{color:'#00B0FF'}},
+            {value:83000,name:'類別三~六 其他',itemStyle:{color:'#F8B62D'}}
+        ]
+    }],
+    graphic:[{
+        type:'group', left:'center', top:'middle',
+        children:[
+            {type:'text', top:-40, style:{text:'總排放量', fill:'rgba(255,255,255,0.50)', fontSize:12, fontWeight:400, fontFamily:'"PingFang TC","Microsoft JhengHei",system-ui', textAlign:'center'}},
+            {type:'text', top:-14, style:{text:'125,451', fill:'#ffffff', fontSize:30, fontWeight:600, fontFamily:'"PingFang TC","Microsoft JhengHei",system-ui', textAlign:'center'}},
+            {type:'text', top:22,  style:{text:'tCO₂e',  fill:'rgba(255,255,255,0.50)', fontSize:12, fontWeight:400, fontFamily:'"PingFang TC","Microsoft JhengHei",system-ui', textAlign:'center'}}
+        ]
+    }]
+});
+allCharts.push(emissionSourceChart);
+
+// --- Block 8: 碳排放強度追蹤 ---
+const emissionIntensityChart = echarts.init(document.getElementById('emissionIntensityChart'));
+emissionIntensityChart.setOption({
+    grid:{top:40,right:60,bottom:25,left:55},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,0.04)'}},backgroundColor:'rgba(33,40,49,0.95)',borderColor:'rgba(255,255,255,0.50)',borderWidth:0.5,textStyle:{color:'#fff'}},
+    legend:{data:['排放總量','排放強度'],icon:'circle',textStyle:{color:'rgba(255,255,255,0.70)',fontSize:12},left:'center',top:0,itemWidth:8,itemHeight:8},
+    xAxis:{type:'category',data:['2022','2023','2024','2025','2026(預)'],axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'rgba(255,255,255,0.70)'}},
+    yAxis:[
+        {type:'value',name:'tCO₂e',nameLocation:'end',nameTextStyle:{color:'rgba(255,255,255,0.50)',fontSize:10,align:'right',padding:[0,4,0,0]},splitLine:{lineStyle:{color:'rgba(255,255,255,0.05)'}},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:10,formatter:v=>v>=1000?(v/1000).toFixed(0)+'k':v}},
+        {type:'value',name:'強度',nameLocation:'end',nameTextStyle:{color:'rgba(255,255,255,0.50)',fontSize:10},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:10,formatter:'{value}%'},splitLine:{show:false}}
+    ],
+    series:[
+        {name:'排放總量',type:'bar',barWidth:'45%',data:[105000,112000,119000,125451,null],itemStyle:{color:'#00B0FF',borderRadius:[3,3,0,0]},emphasis:{focus:'self'},blur:{itemStyle:{opacity:0.35}}},
+        {name:'排放強度',type:'line',yAxisIndex:1,smooth:true,symbol:'circle',symbolSize:5,data:[null,null,null,null,null].map((_,i)=>[12.5,13.1,12.8,13.5,14.2][i]),itemStyle:{color:'#F8B62D'},lineStyle:{color:'#F8B62D',width:2},emphasis:{focus:'self'},blur:{lineStyle:{opacity:0.2}}}
+    ]
+});
+allCharts.push(emissionIntensityChart);
+
+// --- Block 9: LCA 瀑布圖 ---
+const lcaWaterfallChart = echarts.init(document.getElementById('lcaWaterfallChart'));
+const lcaLabels = ['原物料獲取','零組件製造','廠內生產','包裝運輸','使用階段','廢棄回收','綠電抵銷','淨碳足跡'];
+const lcaVals   = [3.8, 1.2, 1.6, 0.5, 0.9, 0.3, -1.85, null];
+const lcaBase   = [0, 3.8, 5.0, 6.6, 7.1, 8.0, 8.3, 0];
+lcaWaterfallChart.setOption({
+    grid:{top:36,right:20,bottom:40,left:55},
+    tooltip:{
+        trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,0.04)'}},
+        backgroundColor:'rgba(33,40,49,0.95)',borderColor:'rgba(255,255,255,0.50)',borderWidth:0.5,textStyle:{color:'#fff'},
+        formatter: params => {
+            const base = params.find(p => p.seriesIndex === 0);
+            const real = params.find(p => p.seriesIndex === 1);
+            if (!real || real.value === null || real.value === undefined) return '';
+            const stageName = real.name;
+            const val = real.value;
+            const baseVal = (base && base.value != null) ? base.value : 0;
+            const color = real.color;
+            const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px;vertical-align:middle;"></span>`;
+            const isLast = real.dataIndex === 7;
+            if (isLast) {
+                return `<div style="font-size:13px;font-weight:500;margin-bottom:6px;">${stageName}</div>` +
+                       `<div>${dot}<span style="color:rgba(255,255,255,0.70);">淨碳足跡：</span><strong>${val.toFixed(2)} kgCO₂e</strong></div>`;
+            }
+            const sign = val < 0 ? '' : '+';
+            const stageLabel = val < 0 ? '本段抵銷：' : '本段排放：';
+            const cumAfter = baseVal + val;
+            return `<div style="font-size:13px;font-weight:500;margin-bottom:6px;">${stageName}</div>` +
+                   `<div style="color:rgba(255,255,255,0.50);font-size:11px;margin-bottom:4px;">截至上段累積：${baseVal.toFixed(2)} kgCO₂e</div>` +
+                   `<div style="margin-bottom:4px;">${dot}<span style="color:rgba(255,255,255,0.70);">${stageLabel}</span><strong>${sign}${val.toFixed(2)} kgCO₂e</strong></div>` +
+                   `<div style="border-top:0.5px solid rgba(255,255,255,0.15);padding-top:4px;margin-top:4px;"><span style="color:rgba(255,255,255,0.50);font-size:11px;">本段後累積：</span><strong>${cumAfter.toFixed(2)} kgCO₂e</strong></div>`;
+        }
+    },
+    xAxis:{type:'category',data:lcaLabels,axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:10,rotate:20}},
+    yAxis:{type:'value',name:'kgCO₂e',nameLocation:'end',nameTextStyle:{color:'rgba(255,255,255,0.50)',fontSize:10,align:'right',padding:[0,4,0,0]},splitLine:{lineStyle:{color:'rgba(255,255,255,0.05)'}},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:10}},
+    series:[
+        {type:'bar',stack:'wf',data:lcaBase.map((v,i)=>i===7?0:v),itemStyle:{color:'transparent'},barWidth:'50%'},
+        {type:'bar',stack:'wf',barWidth:'50%',
+            data:lcaVals.map((v,i)=>({
+                value: i===7 ? 8.45 : v,
+                itemStyle:{color: i===7 ? '#00B0FF' : v<0 ? '#5CC736' : '#F8B62D', borderRadius:[3,3,0,0]}
+            })),
+            label:{show:true,position:'top',color:'#fff',fontSize:10,formatter:p=>p.value!=null?p.value.toFixed(2):''},
+            emphasis:{focus:'self'}, blur:{itemStyle:{opacity:0.35}}
+        }
+    ]
+});
+allCharts.push(lcaWaterfallChart);
+
+// --- Block 9: BOM 熱點 Treemap ---
+const bomTreemapChart = echarts.init(document.getElementById('bomTreemapChart'));
+bomTreemapChart.setOption({
+    tooltip:{
+        formatter: p => `${p.name}<br/>${p.value} kgCO₂e`,
+        backgroundColor:'rgba(33,40,49,0.95)',borderColor:'rgba(255,255,255,0.50)',borderWidth:0.5,textStyle:{color:'#fff'}
+    },
+    series:[{
+        type:'treemap',roam:false,
+        label:{show:true,color:'#fff',fontSize:14,fontWeight:400,fontFamily:'"PingFang TC","Microsoft JhengHei",system-ui'},
+        emphasis:{focus:'self'},
+        blur:{itemStyle:{opacity:0.4}},
+        breadcrumb:{show:false},
+        data:[
+            {name:'鋁合金外殼',value:1.52,itemStyle:{color:'#F84378',opacity:0.7}},
+            {name:'PCB 基板',  value:0.88,itemStyle:{color:'#FE865A',opacity:0.7}},
+            {name:'電容元件',  value:0.42,itemStyle:{color:'#F1DE75',opacity:0.7}},
+            {name:'銅線束',   value:0.38,itemStyle:{color:'#50E3C2',opacity:0.7}},
+            {name:'塑膠件',   value:0.28,itemStyle:{color:'#17D1F7',opacity:0.7}},
+            {name:'其他',     value:0.18,itemStyle:{color:'#ED84FF',opacity:0.7}},
+            {name:'包裝紙箱', value:0.12,itemStyle:{color:'#A6FFB2',opacity:0.7}}
+        ]
+    }]
+});
+allCharts.push(bomTreemapChart);
+
+// --- Block 10: Top 5 供應商柱狀圖 ---
+const supplierBarChart = echarts.init(document.getElementById('supplierBarChart'));
+supplierBarChart.setOption({
+    grid:{top:10,right:20,bottom:30,left:80},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,0.04)'}},backgroundColor:'rgba(33,40,49,0.95)',borderColor:'rgba(255,255,255,0.50)',borderWidth:0.5,textStyle:{color:'#fff'}},
+    xAxis:{type:'value',splitLine:{lineStyle:{color:'rgba(255,255,255,0.05)'}},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:10,formatter:v=>v/1000+'k'}},
+    yAxis:{type:'category',data:['VND-2033\n光電組件','VND-5541\n散熱金屬','VND-8801\n電路板','VND-7710\n連接器','VND-3102\n晶片'],axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:10}},
+    series:[{
+        type:'bar',barWidth:16,
+        data:[{value:28600,itemStyle:{color:'#FF9A9A'}},{value:18400,itemStyle:{color:'#F8B62D'}},{value:45200,itemStyle:{color:'#F1DE75'}},{value:5321,itemStyle:{color:'#5CC736'}},{value:82150,itemStyle:{color:'#00B0FF'}}],
+        itemStyle:{borderRadius:0},
+        label:{show:true,position:'right',color:'rgba(255,255,255,0.70)',fontSize:10,formatter:p=>(p.value/1000).toFixed(1)+'k'},
+        emphasis:{focus:'self'}, blur:{itemStyle:{opacity:0.35}}
+    }]
+});
+allCharts.push(supplierBarChart);
+
+// --- Block 10: 供應商審核狀態（已改為 HTML 清單，移除圖表初始化）---
+
+// --- Block 12: CEA 碳價趨勢 ---
+const carbonPriceChart = echarts.init(document.getElementById('carbonPriceChart'));
+carbonPriceChart.setOption({
+    grid:{top:40,right:20,bottom:25,left:55},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,0.04)'}},backgroundColor:'rgba(33,40,49,0.95)',borderColor:'rgba(255,255,255,0.50)',borderWidth:0.5,textStyle:{color:'#fff'}},
+    legend:{data:['歷史均價','AI預測'],icon:'circle',textStyle:{color:'rgba(255,255,255,0.70)',fontSize:12},left:'center',top:0,itemWidth:8,itemHeight:8},
+    xAxis:{type:'category',data:['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:10}},
+    yAxis:{type:'value',name:'¥/噸',splitLine:{lineStyle:{color:'rgba(255,255,255,0.05)'}},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:10},nameTextStyle:{color:'#64748b',fontSize:10}},
+    series:[
+        {name:'歷史均價',type:'line',smooth:true,symbol:'circle',symbolSize:5,data:[82,84,88,90,89,null,null,null,null,null,null,null],itemStyle:{color:'#00B0FF'},areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(0,103,255,0.2)'},{offset:1,color:'rgba(0,103,255,0)'}])},emphasis:{focus:'self'},blur:{lineStyle:{opacity:0.2}}},
+        {name:'AI預測',type:'line',smooth:true,symbol:'circle',symbolSize:5,data:[null,null,null,90,92,94,97,100,103,105,106,null],itemStyle:{color:'#F8B62D'},lineStyle:{type:'dashed',color:'#F8B62D',width:2},emphasis:{focus:'self'},blur:{lineStyle:{opacity:0.2}}}
+    ]
+});
+allCharts.push(carbonPriceChart);
+
+// --- Block 12: 碳資產組合 水平條形圖 ---
+const carbonPortfolioChart = echarts.init(document.getElementById('carbonPortfolioChart'));
+const _cpTotal = 132000;
+carbonPortfolioChart.setOption({
+    grid: { top: 8, right: 130, bottom: 8, left: 120 },
+    tooltip: {
+        trigger: 'item',
+        backgroundColor: 'rgba(33,40,49,0.95)', borderColor: 'rgba(255,255,255,0.50)', borderWidth: 0.5,
+        textStyle: { color: '#fff', fontSize: 12 },
+        formatter: p => `${p.name}<br/>${p.value.toLocaleString()} 噸（${(p.value/_cpTotal*100).toFixed(1)}%）`
+    },
+    xAxis: { type: 'value', show: false },
+    yAxis: {
+        type: 'category',
+        data: ['I-REC 國際綠證', 'CCER 自願減排', '建議採購 CEA', 'CEA 政府核發配額'],
+        inverse: false,
+        axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 11 }
+    },
+    series: [{
+        type: 'bar', barWidth: 20,
+        data: [
+            { value: 1500,   itemStyle: { color: '#A6FFB2', borderRadius: [0,3,3,0] } },
+            { value: 2500,   itemStyle: { color: '#5CC736', borderRadius: [0,3,3,0] } },
+            { value: 3000,   itemStyle: { color: 'rgba(0,176,255,0.35)', borderRadius: [0,3,3,0] } },
+            { value: 125000, itemStyle: { color: '#00B0FF', borderRadius: [0,3,3,0] } }
+        ],
+        label: {
+            show: true, position: 'right',
+            color: 'rgba(255,255,255,0.70)', fontSize: 11,
+            formatter: p => `${p.value >= 1000 ? (p.value/1000).toFixed(1)+'k' : p.value} 噸  ${(p.value/_cpTotal*100).toFixed(1)}%`
+        },
+        emphasis: { focus: 'self' }, blur: { itemStyle: { opacity: 0.35 } }
+    }]
+});
+allCharts.push(carbonPortfolioChart);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2&3 能源消费量与强度计算单元 — IWA 数位能碳管理</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root {
+    --color-bgBase:        #212831;
+    --color-bgPanel:       #2C333C;
+    --color-bgHover:       rgba(255,255,255,0.05);
+    --color-bg-menu-lv1:   #283A51;
+    --color-bg-menu-lv2:   #1D2C40;
+    --color-accentPrimary: #F8B62D;
+    --color-accentHover:   #fac84a;
+    --color-indicator:     #00B0FF;
+    --color-textMain:    #ffffff;
+    --color-textSub:     rgba(255,255,255,0.70);
+    --color-textMuted:   rgba(255,255,255,0.50);
+    --color-divider:     rgba(255,255,255,0.10);
+    --color-statusHigh:   #FF2D55;
+    --color-statusWarn:   #F1DE75;
+    --color-statusNormal: #5CC736;
+    --color-value-electricity: #A6FFB2;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background-color: var(--color-bgBase);
+    color: var(--color-textSub);
+    font-family: "PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    font-size: 16px; font-weight: 400; letter-spacing: 0.04em;
+    overflow: hidden;
+}
+a { text-decoration: none; color: inherit; }
+
+/* Typography */
+.type-display-l { font-size: 40px; font-weight: 600; letter-spacing: 0.02em; }
+.type-display-s { font-size: 30px; font-weight: 600; letter-spacing: 0.02em; }
+.type-title-xl  { font-size: 28px; font-weight: 500; letter-spacing: 0.06em; }
+.type-title-l   { font-size: 24px; font-weight: 500; letter-spacing: 0.06em; }
+.type-body-m    { font-size: 16px; font-weight: 400; letter-spacing: 0.04em; }
+.type-label-l   { font-size: 14px; font-weight: 400; letter-spacing: 0.04em; }
+.type-label-m   { font-size: 13px; font-weight: 400; letter-spacing: 0.04em; }
+.type-label-s   { font-size: 12px; font-weight: 500; letter-spacing: 0.04em; }
+.type-label-xs  { font-size: 11px; font-weight: 400; letter-spacing: 0.04em; }
+.type-caption-m { font-size: 12px; font-weight: 400; letter-spacing: 0.04em; }
+.type-caption-s { font-size: 11px; font-weight: 300; letter-spacing: 0.04em; }
+.text-white { color: var(--color-textMain); }
+.text-sub   { color: var(--color-textSub); }
+.text-muted { color: var(--color-textMuted); }
+
+/* Layout */
+.layout-wrapper { display: flex; height: 100vh; overflow: hidden; }
+
+/* Sidebar */
+.iwa-frontend-sidebar {
+    width: 220px; background-color: var(--color-bg-menu-lv1);
+    box-shadow: 0px 4px 4px rgba(0,0,0,0.25);
+    transition: transform 300ms ease-in-out, width 300ms cubic-bezier(0.4,0,0.2,1);
+    position: relative; z-index: 100;
+    display: flex; flex-direction: column; gap: 20px; padding-top: 17px;
+}
+.brand-area { padding: 0 10px; display: flex; align-items: center; gap: 10px; }
+.brand-logo-text { display: flex; align-items: center; gap: 10px; flex: 1; }
+.brand-logo { width: 26px; height: 26px; border-radius: 5.91px; border: 0.59px solid white; background: white; flex-shrink: 0; }
+.brand-text { color: white; font-size: 16px; font-weight: 400; white-space: nowrap; }
+.pin-btn {
+    background: rgba(15,26,42,0.80); border: none; cursor: pointer;
+    width: 26px; height: 26px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: background 150ms ease, color 150ms ease;
+}
+.pin-btn.active { color: #00B0FF; }
+.pin-btn:not(.active) { color: #a9a9a9; }
+.pin-btn:hover { background: rgba(15,26,42,1); color: #9adfff; }
+.pin-btn.active .pin-svg--pin   { display: block; }
+.pin-btn.active .pin-svg--unpin { display: none; }
+.pin-btn:not(.active) .pin-svg--pin   { display: none; }
+.pin-btn:not(.active) .pin-svg--unpin { display: block; }
+.menu-list { list-style: none; flex: 1; overflow-y: auto; padding-right: 5px; }
+.menu-item {
+    height: 42px; padding: 10px 10px 10px 25px;
+    display: flex; align-items: center; cursor: pointer;
+    position: relative; color: white;
+    font-size: 16px; font-weight: 400; border-radius: 5px;
+    transition: background 150ms ease-in-out;
+}
+.menu-item .icon-wrap { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 5px; }
+.menu-item .text { flex: 1; white-space: nowrap; }
+.menu-item::before {
+    content: ''; position: absolute; left: 0; top: 5px; bottom: 5px;
+    width: 3px; background-color: var(--color-accentPrimary);
+    border-radius: 0 4px 3px 0; opacity: 0; transition: opacity 150ms ease-in-out;
+}
+.menu-item.active { color: var(--color-accentPrimary); }
+.menu-item.active::before { opacity: 1; }
+.menu-item.active .icon-wrap i { color: var(--color-accentPrimary); }
+.iwa-frontend-sidebar.mini { width: 64px; }
+.iwa-frontend-sidebar.mini .brand-text,
+.iwa-frontend-sidebar.mini .menu-item .text { display: none !important; }
+.iwa-frontend-sidebar.mini .menu-item { justify-content: center; padding: 0; }
+.iwa-frontend-sidebar.mini .menu-item .icon-wrap { margin-right: 0; }
+.iwa-frontend-sidebar.mini .brand-area { justify-content: center; padding: 0; }
+.iwa-frontend-sidebar.mini .brand-logo-text { flex: 0 0 auto; }
+.iwa-frontend-sidebar.mini .pin-btn { display: none; }
+.submenu-panel {
+    position: absolute; left: 100%; top: 0;
+    width: 220px; height: 100vh;
+    background-color: var(--color-bg-menu-lv2);
+    transform: translateX(-20px); opacity: 0;
+    pointer-events: none;
+    transition: transform 250ms cubic-bezier(0.4,0,0.2,1), opacity 250ms cubic-bezier(0.4,0,0.2,1);
+    z-index: 99; display: flex; flex-direction: column; padding-top: 17px; gap: 8px;
+}
+.submenu-panel.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+.submenu-header { height: 26px; padding: 0 10px; display: flex; align-items: center; justify-content: flex-end; }
+.submenu-panel .menu-item { padding-left: 25px; }
+.submenu-panel .menu-item:hover { background-color: rgba(0,176,255,0.10); }
+.submenu-panel .menu-item.active { color: var(--color-accentPrimary); background-color: rgba(0,176,255,0.20); }
+.submenu-panel .menu-item.active::before { opacity: 1; }
+
+/* Header */
+.main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.iwa-frontend-header {
+    height: 60px; background-color: var(--color-bgBase);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; border-bottom: 1px solid var(--color-divider);
+}
+.breadcrumb { color: var(--color-textSub); font-size: 14px; }
+.breadcrumb .sep { margin: 0 6px; opacity: 0.5; }
+.breadcrumb .current { color: var(--color-textMain); }
+.header-controls { display: flex; align-items: center; gap: 16px; }
+.header-icon { color: var(--color-textSub); cursor: pointer; font-size: 16px; transition: color 150ms; }
+.header-icon:hover { color: #ffffff; }
+.header-divider { height: 24px; border-left: 1px solid rgba(255,255,255,0.15); margin: 0 8px; }
+.brand-time { display: flex; align-items: center; gap: 12px; }
+.time-text { display: flex; flex-direction: column; align-items: flex-end; }
+body.is-fullscreen .iwa-frontend-sidebar { transform: translateX(-100%); width: 0; opacity: 0; pointer-events: none; }
+body.is-fullscreen .iwa-frontend-header { transform: translateY(-100%); height: 0; opacity: 0; pointer-events: none; }
+
+/* Content */
+.content-wrapper {
+    flex: 1; padding: 16px 24px 24px;
+    overflow-y: auto; display: flex; flex-direction: column; gap: 30px;
+}
+.content-wrapper::-webkit-scrollbar { width: 6px; }
+.content-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+/* Cards */
+.iwa-frontend-card {
+    background-color: var(--color-bgPanel);
+    border-radius: 10px; padding: 20px;
+    box-shadow: 0px 0px 20px rgba(0,0,0,0.50);
+    position: relative;
+}
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 400; color: var(--color-textSub); }
+.legend-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.card-title { color: var(--color-textMain); font-size: 16px; font-weight: 400; }
+
+/* KPI 3-col */
+.kpi3-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+
+/* Intensity group */
+.intensity-group {
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+    padding: 16px 30px; background: rgba(255,255,255,0.02);
+}
+.intensity-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+}
+.intensity-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.btn-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 999px; border: none; cursor: pointer;
+    font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+    white-space: nowrap;
+    transition: background 150ms, color 150ms, outline-color 150ms;
+}
+.btn-pill.btn-secondary {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.70);
+    color: var(--color-textMain);
+    padding: 5px 16px; font-size: 16px; font-weight: 400;
+}
+.btn-pill.btn-secondary:hover {
+    background: #ffffff;
+    color: var(--color-bgBase);
+    border-color: #ffffff;
+}
+.btn-pill.btn-primary {
+    background: transparent;
+    border: 1px solid var(--color-accentPrimary);
+    border-radius: 30px;
+    color: var(--color-accentPrimary);
+    width: 100px; justify-content: center;
+    padding: 5px 20px; font-size: 16px; font-weight: 400;
+    font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+    letter-spacing: normal;
+}
+.btn-pill.btn-primary:hover {
+    background: var(--color-accentPrimary);
+    color: var(--color-bgBase);
+}
+.btn-pill.btn-primary-soft {
+    background: transparent;
+    border: 1px solid var(--color-accentPrimary);
+    color: var(--color-accentPrimary);
+    padding: 8px 20px; font-size: 16px; font-weight: 400;
+}
+.btn-pill.btn-primary-soft:hover {
+    background: rgba(248,182,45,0.10);
+    border-color: var(--color-accentPrimary);
+    color: var(--color-accentPrimary);
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 200ms ease;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal-box {
+    background: var(--color-bgPanel); border-radius: 10px;
+    width: 800px; height: 500px;
+    box-shadow: 0px 0px 12px rgba(0,0,0,0.50);
+    border: 1px solid var(--color-accentPrimary);
+    overflow: hidden; display: flex; flex-direction: column;
+}
+.modal-hd {
+    height: 85px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 0 32px;
+}
+.modal-hd-title { font-size: 24px; font-weight: 500; color: var(--color-textMain); letter-spacing: 0.07px; }
+.modal-body {
+    flex: 1; display: flex; flex-direction: column; gap: 30px;
+    padding: 0 30px;
+}
+.modal-desc-bar {
+    background: rgba(255,255,255,0.05); border-radius: 5px;
+    padding: 10px 30px;
+    font-size: 14px; color: var(--color-textSub);
+}
+.modal-th-row {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 52px; padding: 0 30px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+}
+.modal-th-name { font-size: 16px; font-weight: 500; color: var(--color-textMain); line-height: 1.2; }
+.modal-th-unit { font-size: 14px; font-weight: 400; color: var(--color-textSub); }
+.modal-th-fields { display: flex; align-items: center; gap: 50px; }
+.modal-th-field  { display: flex; align-items: center; gap: 20px; }
+.modal-th-lbl    { font-size: 14px; color: var(--color-textSub); white-space: nowrap; }
+.th-input {
+    width: 100px; height: 30px; background: transparent;
+    border: 1px solid rgba(255,255,255,0.50); border-radius: 15px;
+    padding: 5px 15px; color: var(--color-textMain);
+    font-size: 16px; font-weight: 400;
+    font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+    appearance: textfield; -moz-appearance: textfield;
+}
+.th-input::-webkit-inner-spin-button,
+.th-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.th-input:focus { outline: none; border-color: var(--color-accentPrimary); }
+.modal-footer {
+    height: 72px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; gap: 30px;
+}
+
+/* Detail Modal（置中彈窗） */
+.detail-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.60);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 900; opacity: 0; pointer-events: none; transition: opacity 250ms ease;
+}
+.detail-modal-overlay.open { opacity: 1; pointer-events: auto; }
+.detail-modal {
+    width: min(1316px, calc(100vw - 48px));
+    height: min(740px, calc(100vh - 48px));
+    background: var(--color-bgPanel);
+    border: 1px solid var(--color-accentPrimary);
+    border-radius: 12px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    overflow: hidden;
+}
+.detail-modal-header {
+    padding: 24px 40px 20px; text-align: center; flex-shrink: 0;
+}
+.detail-modal-title { font-size: 20px; font-weight: 600; color: var(--color-textMain); }
+.detail-modal-section-hd {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 40px 14px;
+    flex-shrink: 0;
+}
+.detail-modal-section-name { font-size: 20px; font-weight: 400; color: var(--color-textMain); }   /* Body/L */
+.detail-modal-section-meta { font-size: 14px; font-weight: 400; color: var(--color-textSub); }        /* Label/L */
+.detail-modal-body { flex: 1; overflow-y: auto; padding: 24px 40px; }
+.detail-modal-body::-webkit-scrollbar { width: 4px; }
+.detail-modal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+.detail-modal-footer {
+    padding: 16px 40px 24px;
+    display: flex; justify-content: center;
+    flex-shrink: 0;
+}
+.year-group { margin-bottom: 28px; }
+.year-group-title {
+    font-size: 14px; font-weight: 400; color: var(--color-accentPrimary);  /* Label/L */
+    margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+    padding-bottom: 8px; border-bottom: 1px solid rgba(248,182,45,0.2);
+}
+.year-badge {
+    background: rgba(248,182,45,0.15); border: 1px solid rgba(248,182,45,0.35);
+    color: var(--color-accentPrimary); font-size: 12px; font-weight: 600;
+    padding: 2px 10px; border-radius: 999px;
+}
+.year-avg { font-size: 16px; font-weight: 400; color: var(--color-textSub); }  /* Body/M */
+.detail-table { display: flex; flex-direction: column; gap: 4px; }
+.detail-table-header {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; padding: 8px 16px 10px;
+    background: rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 4px;
+}
+.detail-table-header span { font-size: 12px; color: var(--color-textMuted); font-weight: 500; text-align: right; }  /* Label/S */
+.detail-table-header span:first-child { text-align: left; }
+.detail-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; align-items: center;
+    background: transparent; border-radius: 0; padding: 11px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    transition: background 120ms ease;
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-row:hover { background: rgba(255,255,255,0.06); }
+.detail-month  { font-size: 16px; font-weight: 400; color: var(--color-textSub); }                          /* Body/M */
+.detail-energy { font-size: 16px; font-weight: 400; color: var(--color-textMain); text-align: right; }       /* Body/M */
+.detail-denom  { font-size: 16px; font-weight: 400; color: var(--color-textMain); text-align: right; }       /* Body/M */
+.detail-result { font-size: 16px; font-weight: 400; color: var(--color-accentPrimary); text-align: right; }  /* Body/M */
+
+/* Filter Bar */
+.filter-bar {
+    display: flex; flex-wrap: wrap; gap: 15px;
+    align-items: center; justify-content: center;
+    padding: 30px 0;
+}
+.filter-divider {
+    width: 1px; height: 21px;
+    background: rgba(255,255,255,0.20); flex-shrink: 0;
+}
+
+/* Module section */
+.module-section { display: flex; flex-direction: column; gap: 16px; }
+.module-section-header {
+    display: flex; align-items: center; gap: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.module-num {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: transparent; border: 1px solid rgba(241,222,117,0.50);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--color-statusWarn); font-size: 16px; font-weight: 600; flex-shrink: 0;
+}
+.module-title { color: var(--color-textMain); font-size: 28px; font-weight: 500; letter-spacing: 0.06em; }
+.module-desc  { color: var(--color-textMuted); font-size: 14px; font-weight: 400; margin-left: 2px; }
+
+/* KPI */
+.kpi5-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 16px; }
+.kpi-card { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.kpi-label { font-size: 14px; font-weight: 400; color: var(--color-textSub); } /* Label/L */
+.kpi-num   { font-size: 30px; font-weight: 600; color: var(--color-textMain); line-height: 1; }
+.kpi-unit  { font-size: 12px; font-weight: 500; color: var(--color-textSub); margin-left: 4px; }
+.kpi-value-row { min-height: 36px; display: flex; align-items: center; }
+.badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 500; /* Label/S */
+    white-space: nowrap; align-self: flex-start;
+}
+.badge-up   { background: rgba(239,68,68,0.15);  color: var(--color-statusHigh); }
+.badge-down { background: rgba(34,197,94,0.15);  color: var(--color-statusNormal); }
+.badge-warn { background: rgba(249,115,22,0.15); color: var(--color-statusWarn); }
+.badge-info { background: rgba(0,103,255,0.15);  color: var(--color-indicator); }
+
+/* Block3 */
+.block3-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+.block3-left { display: flex; flex-direction: column; gap: 16px; height: 100%; }
+.block3-left .iwa-frontend-card { flex: 1; }
+.trend-chart-wrap { height: 260px; }
+.stack-tab {
+    padding: 4px 12px; border-radius: 5px; font-size: 12px; font-weight: 500;
+    color: rgba(255,255,255,0.60); background: transparent;
+    border: 1px solid rgba(255,255,255,0.20); cursor: pointer; transition: all 150ms;
+}
+.stack-tab:hover { color: rgba(255,255,255,0.90); border-color: rgba(255,255,255,0.50); }
+.stack-tab.active { background: var(--color-accentPrimary); color: #1a1a1a; border-color: transparent; font-weight: 600; }
+
+/* Iwa-dd2 */
+.iwa-dd2-wrap { position: relative; display: inline-block; user-select: none; }
+.iwa-dd2-trigger {
+    display: inline-flex; align-items: center; justify-content: space-between;
+    padding: 4px 10px; gap: 10px; min-width: 107px;
+    background: var(--color-bgBase); border-radius: 25px;
+    outline: 1px solid rgba(255,255,255,0.50); outline-offset: -1px;
+    opacity: 0.80; cursor: pointer; transition: opacity 150ms, outline-color 150ms;
+}
+.iwa-dd2-trigger:hover { opacity: 1; outline-color: var(--color-accentPrimary); }
+.iwa-dd2-trigger:hover .dd2-chevron { fill: var(--color-accentPrimary); }
+.iwa-dd2-wrap.open .iwa-dd2-trigger { opacity: 1; outline-color: var(--color-accentPrimary); border-radius: 10px 10px 0 0; }
+.iwa-dd2-wrap.open .iwa-dd2-trigger .dd2-chevron { fill: var(--color-accentPrimary); transform: rotate(180deg); }
+.dd2-text {
+    flex: 1; text-align: center; color: white;
+    font-size: 16px; font-weight: 400; white-space: nowrap;
+    font-family: "PingFang TC","Microsoft JhengHei",system-ui; transition: color 150ms;
+}
+.dd2-chevron { width: 10px; height: 10px; fill: white; flex-shrink: 0; transition: fill 150ms, transform 200ms ease; }
+.iwa-dd2-panel {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+    background: var(--color-bgBase); border: 1px solid var(--color-accentPrimary); border-top: none;
+    border-radius: 0 0 10px 10px; overflow: hidden;
+    max-height: 0; opacity: 0; transition: max-height 200ms ease, opacity 150ms ease; pointer-events: none;
+}
+.iwa-dd2-wrap.open .iwa-dd2-panel { max-height: 200px; opacity: 1; pointer-events: auto; }
+.dd2-option {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; column-gap: 10px;
+    color: white; font-size: 16px; font-weight: 400;
+    font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+    cursor: pointer; transition: color 100ms;
+}
+.dd2-option:hover { color: var(--color-accentPrimary); }
+.dd2-option.selected { color: var(--color-accentPrimary); }
+.dd2-opt-text { flex: 1; text-align: center; }
+.dd2-tick { display: flex; align-items: center; flex-shrink: 0; width: 10px; height: 10px; opacity: 0; }
+.dd2-option.selected .dd2-tick { opacity: 1; }
+.iwa-dd2-wrap.is-small .iwa-dd2-trigger { padding: 2px 8px; min-width: 100px; gap: 8px; }
+.iwa-dd2-wrap.is-small .dd2-text { font-size: 13px; }
+.iwa-dd2-wrap.is-small .dd2-chevron { width: 8px; height: 8px; }
+</style>
+</head>
+<body>
+<div class="layout-wrapper">
+
+<!-- ===== SIDEBAR (from 2_3-能源消費量與強度計算.html) ===== -->
+<nav class="iwa-frontend-sidebar" id="mainSidebar">
+    <div class="brand-area">
+        <div class="brand-logo-text">
+            <div class="brand-logo">SU</div>
+            <span class="type-body-m text-white brand-text">群电苏州厂</span>
+        </div>
+        <button class="pin-btn active" id="sidebarPinBtn">
+            <svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg>
+            <svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg>
+        </button>
+    </div>
+    <ul class="menu-list">
+        <a href="index.html"><li class="menu-item" data-target="dashboard"><div class="icon-wrap"><i class="fa-solid fa-chart-pie"></i></div><span class="text">全厂总览</span></li></a>
+        <a href="energy-monitor.html"><li class="menu-item active" data-target="panel-energy"><div class="icon-wrap"><i class="fa-solid fa-bolt"></i></div><span class="text">能源智慧监测</span></li></a>
+        <a href="efficiency-opt.html"><li class="menu-item" data-target="panel-efficiency"><div class="icon-wrap"><i class="fa-solid fa-leaf"></i></div><span class="text">能效诊断与优化</span></li></a>
+        <a href="carbon-mgmt.html"><li class="menu-item" data-target="panel-carbon"><div class="icon-wrap"><i class="fa-solid fa-cloud"></i></div><span class="text">碳排放管理与核算</span></li></a>
+        <a href="supply-chain.html"><li class="menu-item" data-target="panel-supply"><div class="icon-wrap"><i class="fa-solid fa-link"></i></div><span class="text">价值链与资产营运</span></li></a>
+    </ul>
+    <div class="submenu-panel" id="panel-energy" data-pinned="false">
+        <div class="submenu-header">
+            <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+        </div>
+        <ul class="menu-list">
+            <a href="energy-query.html"><li class="menu-item"><span class="text">① 能耗查询</span></li></a>
+            <a href="#"><li class="menu-item active"><span class="text">② 能源消费量与强度计算</span></li></a>
+            <a href="5-能流分析.html"><li class="menu-item"><span class="text">⑤ 能流分析</span></li></a>
+        </ul>
+    </div>
+    <div class="submenu-panel" id="panel-efficiency" data-pinned="false">
+        <div class="submenu-header"><button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button></div>
+        <ul class="menu-list">
+            <a href="efficiency-analysis.html"><li class="menu-item"><span class="text">③ 消费分析与策略推荐</span></li></a>
+            <a href="efficiency-benchmark.html"><li class="menu-item"><span class="text">④ 能效对标</span></li></a>
+            <a href="efficiency-balance.html"><li class="menu-item"><span class="text">⑥ 能效平衡与优化</span></li></a>
+        </ul>
+    </div>
+    <div class="submenu-panel" id="panel-carbon" data-pinned="false">
+        <div class="submenu-header"><button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button></div>
+        <ul class="menu-list">
+            <a href="carbon-budget.html"><li class="menu-item"><span class="text">⑦ 用能与碳排放预算管理</span></li></a>
+            <a href="carbon-accounting.html"><li class="menu-item"><span class="text">⑧ 碳排放核算</span></li></a>
+            <a href="product-footprint.html"><li class="menu-item"><span class="text">⑨ 碳足迹核算</span></li></a>
+        </ul>
+    </div>
+    <div class="submenu-panel" id="panel-supply" data-pinned="false">
+        <div class="submenu-header"><button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button></div>
+        <ul class="menu-list">
+            <a href="supply-chain-mgmt.html"><li class="menu-item"><span class="text">⑩ 供应链碳管理</span></li></a>
+            <a href="carbon-audit.html"><li class="menu-item"><span class="text">⑪ 碳核查支撑</span></li></a>
+            <a href="carbon-assets.html"><li class="menu-item"><span class="text">⑫ 碳资产管理</span></li></a>
+        </ul>
+    </div>
+</nav>
+
+<!-- ===== MAIN ===== -->
+<main class="main-area">
+    <header class="iwa-frontend-header">
+        <div class="breadcrumb">
+            数位能碳管理中心<span class="sep">/</span>能源智慧监测<span class="sep">/</span><span class="current">能源消费量与强度计算</span>
+        </div>
+        <div class="header-controls">
+            <i class="fa-solid fa-moon header-icon"></i>
+            <i class="fa-solid fa-expand header-icon" id="btn-fullscreen"></i>
+            <i class="fa-regular fa-bell header-icon"></i>
+            <i class="fa-solid fa-border-all header-icon"></i>
+            <div style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <i class="fa-regular fa-user header-icon"></i>
+                <span class="type-label-m">Admin User</span>
+            </div>
+            <div class="header-divider"></div>
+            <div class="brand-time">
+                <div class="brand-logo" style="width:24px;height:24px;font-size:10px;">IWA</div>
+                <div class="time-text">
+                    <span class="type-label-m text-white" style="font-weight:600;">IWA</span>
+                    <span class="type-caption-m" id="realtime-clock"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="content-wrapper">
+
+        <!-- ===== 篩選列 Filter Bar ===== -->
+            <div class="filter-bar">
+                <!-- 年度 -->
+                <div class="iwa-dd2-wrap" id="fb-year">
+                    <div class="iwa-dd2-trigger" onclick="toggleDD('fb-year')" style="min-width:150px;">
+                        <span class="dd2-text" id="fb-year-val">2025</span>
+                        <svg class="dd2-chevron" viewBox="0 0 32 32"><path d="M15.998 19.576l12.091-12.091c0.895-0.895 2.345-0.895 3.24 0s0.895 2.345 0 3.24l-13.322 13.322c-0.093 0.154-0.206 0.299-0.339 0.431-0.298 0.298-0.658 0.497-1.039 0.596-0.794 0.258-1.7 0.072-2.331-0.558-0.184-0.183-0.329-0.39-0.438-0.611l-13.19-13.19c-0.893-0.893-0.893-2.341 0-3.234s2.341-0.893 3.234 0l12.095 12.095z"/></svg>
+                    </div>
+                    <div class="iwa-dd2-panel">
+                        <div class="dd2-option selected" onclick="selectDD('fb-year','2025',this)"><span class="dd2-opt-text">2025</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                        <div class="dd2-option" onclick="selectDD('fb-year','2024',this)"><span class="dd2-opt-text">2024</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                        <div class="dd2-option" onclick="selectDD('fb-year','2023',this)"><span class="dd2-opt-text">2023</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                        <div class="dd2-option" onclick="selectDD('fb-year','2022',this)"><span class="dd2-opt-text">2022</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                    </div>
+                </div>
+                <div class="filter-divider"></div>
+                <!-- 廠區 -->
+                <div class="iwa-dd2-wrap" id="fb-factory">
+                    <div class="iwa-dd2-trigger" onclick="toggleDD('fb-factory')" style="min-width:150px;">
+                        <span class="dd2-text" id="fb-factory-val">全厂</span>
+                        <svg class="dd2-chevron" viewBox="0 0 32 32"><path d="M15.998 19.576l12.091-12.091c0.895-0.895 2.345-0.895 3.24 0s0.895 2.345 0 3.24l-13.322 13.322c-0.093 0.154-0.206 0.299-0.339 0.431-0.298 0.298-0.658 0.497-1.039 0.596-0.794 0.258-1.7 0.072-2.331-0.558-0.184-0.183-0.329-0.39-0.438-0.611l-13.19-13.19c-0.893-0.893-0.893-2.341 0-3.234s2.341-0.893 3.234 0l12.095 12.095z"/></svg>
+                    </div>
+                    <div class="iwa-dd2-panel">
+                        <div class="dd2-option selected" onclick="selectDD('fb-factory','全廠',this)"><span class="dd2-opt-text">全厂</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                        <div class="dd2-option" onclick="selectDD('fb-factory','MFG',this)"><span class="dd2-opt-text">MFG</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                        <div class="dd2-option" onclick="selectDD('fb-factory','MAG',this)"><span class="dd2-opt-text">MAG</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                        <div class="dd2-option" onclick="selectDD('fb-factory','LED',this)"><span class="dd2-opt-text">LED</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                    </div>
+                </div>
+                <div class="filter-divider"></div>
+                <!-- 比較期間 -->
+                <div class="iwa-dd2-wrap" id="fb-compare">
+                    <div class="iwa-dd2-trigger" onclick="toggleDD('fb-compare')" style="min-width:150px;">
+                        <span class="dd2-text" id="fb-compare-val">去年同期</span>
+                        <svg class="dd2-chevron" viewBox="0 0 32 32"><path d="M15.998 19.576l12.091-12.091c0.895-0.895 2.345-0.895 3.24 0s0.895 2.345 0 3.24l-13.322 13.322c-0.093 0.154-0.206 0.299-0.339 0.431-0.298 0.298-0.658 0.497-1.039 0.596-0.794 0.258-1.7 0.072-2.331-0.558-0.184-0.183-0.329-0.39-0.438-0.611l-13.19-13.19c-0.893-0.893-0.893-2.341 0-3.234s2.341-0.893 3.234 0l12.095 12.095z"/></svg>
+                    </div>
+                    <div class="iwa-dd2-panel">
+                        <div class="dd2-option selected" onclick="selectDD('fb-compare','去年同期',this)"><span class="dd2-opt-text">去年同期</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                        <div class="dd2-option" onclick="selectDD('fb-compare','無比較',this)"><span class="dd2-opt-text">无比较</span><span class="dd2-tick"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                    </div>
+                </div>
+                <div class="filter-divider"></div>
+                <button class="btn-pill btn-secondary" onclick="applyFilters()" style="width:110px;justify-content:center;">查看</button>
+            </div>
+
+        <!-- ===== BLOCK 2：能源消費量與強度計算 ===== -->
+        <section class="module-section">
+            <div class="module-section-header">
+                <div class="module-num">2</div>
+                <span class="module-title">能源消费量与强度计算</span>
+                <span class="module-desc">消费量统计 × EUI 强度指标 × 年度 KPI 比较</span>
+            </div>
+
+            <div class="kpi3-row">
+                <div class="iwa-frontend-card kpi-card">
+                    <div class="kpi-label">综合能源消费量</div>
+                    <div class="kpi-value-row"><span class="kpi-num" id="kpi-consumption">3,248</span><span class="kpi-unit">tce</span></div>
+                    <span class="badge badge-up" id="kpi-consumption-badge">↑ 8.3% 同比</span>
+                </div>
+                <div class="iwa-frontend-card kpi-card">
+                    <div class="kpi-label">能源成本</div>
+                    <div class="kpi-value-row"><span class="kpi-num" id="kpi-cost">2,716</span><span class="kpi-unit">万元</span></div>
+                    <span class="badge badge-up" id="kpi-cost-badge">↑ 6.5% 同比</span>
+                </div>
+                <div class="iwa-frontend-card kpi-card">
+                    <div class="kpi-label">碳排放量</div>
+                    <div class="kpi-value-row"><span class="kpi-num" id="kpi-carbon">19,690</span><span class="kpi-unit">tCO₂e</span></div>
+                    <span class="badge badge-up" id="kpi-carbon-badge">↑ 7.1% 同比</span>
+                </div>
+                <!--
+                <div class="iwa-frontend-card kpi-card">
+                    <div class="kpi-label">等效植樹</div>
+                    <div class="kpi-value-row"><span class="kpi-num" id="kpi-trees">107.6萬</span><span class="kpi-unit">棵</span></div>
+                    <span class="badge badge-up" id="kpi-trees-badge">↑ 7.1% 同比</span>
+                </div>
+                -->
+            </div>
+
+            <!-- 强度指标 group -->
+            <div class="intensity-group">
+                <div class="intensity-header">
+                    <span class="type-body-m text-sub">强度指标</span>
+                    <button class="btn-pill btn-secondary" onclick="openThresholdModal()" style="font-size:14px;">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><g clip-path="url(#clip0_58_3462)"><path d="M10.9091 0.454529C12.0038 0.454529 12.8909 1.34167 12.8909 2.43635L12.8891 3.13362L13.314 2.6432C14.0435 1.90916 15.2069 1.8685 15.9847 2.52541L16.0814 2.61378L17.3547 3.85736C17.7319 4.22751 17.9443 4.73378 17.9453 5.25363C17.9572 5.79393 17.7415 6.31541 17.3578 6.68503L16.8882 7.15362L17.6489 7.15504C18.6632 7.20339 19.4702 8.00427 19.5405 9.00167L19.5455 9.14544V10.9091C19.5455 12.0038 18.6582 12.8918 17.5636 12.8918L16.8691 12.89L17.3295 13.3503C18.0633 14.0796 18.1043 15.2427 17.4493 16.0204L17.3402 16.1399L16.1442 17.3531C15.777 17.7309 15.2735 17.9442 14.7393 17.9454C14.2151 17.9384 13.7151 17.7283 13.3487 17.3641L12.8445 16.8691L12.8449 17.6489C12.7966 18.6632 11.9957 19.4702 10.9983 19.5405L10.8545 19.5454H9.13636C8.04169 19.5454 7.15454 18.6583 7.15454 17.5636L7.15454 16.8491L6.68603 17.3568C5.95673 18.0905 4.79365 18.1315 4.01591 17.4766L3.89643 17.3674L3.87844 17.348L2.6463 16.1436C2.3088 15.8145 2.1028 15.3768 2.06203 14.9111L2.05454 14.7353C2.05572 14.2033 2.26627 13.6932 2.64244 13.3147L3.11273 12.8445L2.43392 12.8454C1.3861 12.8398 0.531807 12.0258 0.459502 10.9962L0.454544 10.8545V9.13634C0.454544 8.04167 1.34169 7.15453 2.43636 7.15453L3.15 7.15453L2.64346 6.68626C1.90854 5.95696 1.86817 4.79336 2.47669 4.07476L2.57816 3.96512C2.60889 3.92558 2.62119 3.90977 2.62812 3.90172L3.85584 2.64684C4.22298 2.26904 4.72649 2.05571 5.25255 2.05453C5.7887 2.05219 6.30381 2.26332 6.68505 2.64221L7.15363 3.11089L7.15455 2.4339C7.16018 1.38669 7.97441 0.531845 9.0038 0.45949L9.14545 0.454529H10.9091ZM10.9091 1.36362H9.14545C8.55019 1.36362 8.06683 1.84422 8.06363 2.43635V3.36362C8.06363 3.70076 7.84518 3.93692 7.62092 4.01715C7.3685 4.18167 7.04283 4.18167 6.78971 4.01815L6.71495 3.95776L6.04322 3.28603C5.83427 3.07837 5.55116 2.96233 5.25556 2.96362C4.97337 2.96425 4.7042 3.07829 4.50677 3.28145L3.28505 4.53049L3.1964 4.63068C2.86706 5.04904 2.89582 5.65597 3.27229 6.02994L3.99956 6.70266L4.07376 6.79132C4.20712 6.9997 4.23615 7.25703 4.13427 7.53703L4.11665 7.5683C4.01328 7.8447 3.75961 8.03731 3.42727 8.06362H2.43636C1.84376 8.06362 1.36363 8.54375 1.36363 9.13634V10.8545C1.36363 11.4501 1.84368 11.9332 2.43636 11.9363H3.36363C3.70077 11.9363 3.93694 12.1548 4.01817 12.3806C4.18135 12.6332 4.18135 12.9563 4.01915 13.2096L3.95756 13.2862L3.28604 13.9568C3.08004 14.164 2.96428 14.4445 2.96363 14.7374C2.963 15.022 3.07731 15.2941 3.28147 15.4932L4.5305 16.7149L4.62945 16.8039C5.01623 17.1074 5.56355 17.106 5.93968 16.8083L6.02995 16.7277L6.70268 16.0004L6.79134 15.9262C7.05434 15.7579 7.39111 15.7579 7.65411 15.9262L7.60909 15.9018L7.65723 15.9232C7.8284 16.0138 7.95827 16.1677 8.02236 16.3636L8.04882 16.4649L8.06363 16.5727V17.5636C8.06363 18.1562 8.54376 18.6363 9.13636 18.6363H10.855C11.433 18.637 11.9093 18.1832 11.9364 17.6273V16.6363C11.9364 16.2992 12.1548 16.063 12.383 15.9803C12.6347 15.8199 12.9562 15.8199 13.2786 16.0359L13.984 16.7139C14.1885 16.9171 14.4631 17.0325 14.7444 17.0363C15.0266 17.0357 15.2958 16.9217 15.4943 16.7174L16.6877 15.5058L16.7766 15.4069C17.1054 14.9878 17.0755 14.3796 16.6877 13.9941L15.9877 13.2941L15.9283 13.2209C15.7638 12.9685 15.7638 12.6428 15.9273 12.3897L15.8991 12.4391L15.9234 12.3879C16.0296 12.1875 16.2222 12.0439 16.4655 11.9968L16.5727 11.9827H17.5636C18.156 11.9827 18.6364 11.5019 18.6364 10.9091V9.14493C18.637 8.56695 18.1832 8.09064 17.6273 8.06362H16.6364C16.2992 8.06362 16.063 7.84516 15.9818 7.61937C15.8185 7.36651 15.8185 7.04255 15.8185 6.78968L16.0422 6.71493L16.721 6.03628C16.9282 5.83664 17.0428 5.55967 17.0364 5.26464C17.0357 4.97873 16.9212 4.7056 16.7185 4.50675L15.4773 3.29271L15.3694 3.19644C14.9834 2.89264 14.437 2.89323 14.0687 3.18224L13.9806 3.2605L13.3533 3.98777L13.2555 4.07284C12.993 4.24221 12.6546 4.24221 12.3913 4.07374L12.4336 4.09635L12.3889 4.0772C12.1883 3.97164 12.045 3.77965 11.9966 3.53516L11.9818 3.42726V2.43635C11.9818 1.84375 11.5017 1.36362 10.9091 1.36362ZM10 6.36353L10.1815 6.36798C12.1055 6.46255 13.6364 8.05244 13.6364 9.99989C13.6364 12.0088 12.0086 13.6363 10 13.6363C7.99139 13.6363 6.36363 12.0088 6.36363 9.99989C6.36363 8.05244 7.89451 6.46255 9.81851 6.36798L10 6.36353ZM10 7.27262L9.83975 7.27725C8.4081 7.3602 7.27272 8.54745 7.27272 9.99989C7.27272 11.5067 8.49343 12.7272 10 12.7272C11.5066 12.7272 12.7273 11.5067 12.7273 9.99989C12.7273 8.54745 11.5919 7.3602 10.1602 7.27725L10 7.27262Z" fill="currentColor"/></g><defs><clipPath id="clip0_58_3462"><rect width="20" height="20" fill="white"/></clipPath></defs></svg>
+                        阈值设定
+                    </button>
+                </div>
+                <div class="intensity-grid">
+                    <!-- OVEI 卡片 -->
+                    <div class="iwa-frontend-card" style="padding:18px 20px;">
+                        <div style="margin-bottom:14px;">
+                            <span class="type-label-l text-sub">万元产值能耗（OVEI）</span>
+                        </div>
+                        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px;">
+                            <span class="type-display-s" style="color:var(--color-statusHigh);">高</span>
+                            
+                        </div>
+                        <span class="badge badge-up">↑ 8.9% 同比</span>
+                        <div style="border-top:1px solid rgba(255,255,255,0.08);margin:14px 0;"></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <!--<span class="type-caption-m text-muted">正常區間：12.0~15.0 kWh/万元</span>-->
+                            <button class="btn-pill btn-secondary" onclick="openDetailPanel('ovei')" style="font-size:14px;">查看明细</button>
+                        </div>
+                    </div>
+                    <!-- UPEI 卡片 -->
+                    <div class="iwa-frontend-card" style="padding:18px 20px;">
+                        <div style="margin-bottom:14px;">
+                            <span class="type-label-l text-sub">单位产品能耗（UPEI）</span>
+                        </div>
+                        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px;">
+                            <span class="type-display-s" style="color:var(--color-statusWarn);">中</span>
+                            
+                        </div>
+                        <span class="badge badge-down">↓ 1.2% 同比</span>
+                        <div style="border-top:1px solid rgba(255,255,255,0.08);margin:14px 0;"></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <!--<span class="type-caption-m text-muted">正常區間：120.0~135.0 kWh/件</span>-->
+                            <button class="btn-pill btn-secondary" onclick="openDetailPanel('upei')" style="font-size:14px;">查看明细</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="iwa-frontend-card">
+                <div class="card-header">
+                    <div class="card-title">年度综合能源消费量趋势（tce）<span class="type-label-l text-muted" style="margin-left:8px;">与去年同期比较</span></div>
+                </div>
+                <div id="consumptionTrend" style="height:200px;"></div>
+            </div>
+        </section>
+
+        <!-- ===== BLOCK 3：能源消費分析與用能策略推薦（from 0-全站總覽_v1.html）===== -->
+        <section class="module-section">
+            <div class="module-section-header">
+                <div class="module-num">3</div>
+                <span class="module-title">能源消费分析与用能策略推荐</span>
+                <span class="module-desc">能源结构组成 × 年度趋势</span>
+            </div>
+            <div class="block3-grid">
+                <!-- 左側：結構組成 -->
+                <div class="block3-left">
+                    <div class="iwa-frontend-card">
+                        <div class="card-header">
+                            <div class="card-title">能源结构组成 2025</div>
+                        </div>
+                        <div style="display:flex; gap:24px; align-items:stretch;">
+                            <div style="flex:0 0 55%; display:flex; flex-direction:column; gap:12px;">
+                                <div id="donutChart" style="height:260px;"></div>
+                                <div style="display:flex; flex-wrap:wrap; gap:8px 16px; justify-content:center;">
+                                    <div class="legend-item"><span class="legend-dot" style="background:#00B0FF;"></span><span>国网电力</span></div>
+                                    <div class="legend-item"><span class="legend-dot" style="background:#A6FFB2;"></span><span>光伏</span></div>
+                                    <div class="legend-item"><span class="legend-dot" style="background:#F8B62D;"></span><span>天然气</span></div>
+                                </div>
+                            </div>
+                            <div style="width:1px;background:var(--color-divider);flex-shrink:0;"></div>
+                            <div style="flex:1; display:flex; flex-direction:column; gap:20px; justify-content:center; padding:10px 0;">
+                                <div>
+                                    <div class="type-label-l text-sub">折标煤量</div>
+                                    <div class="type-display-s" style="color:var(--color-textMain);margin-top:4px;">3,248 <span class="type-caption-m text-sub">tce</span></div>
+                                    <span class="badge badge-up" style="margin-top:8px;">↑ 8.3% 同比</span>
+                                </div>
+                                <div>
+                                    <div class="type-label-l text-sub">碳排放</div>
+                                    <div class="type-display-s" style="color:var(--color-textMain);margin-top:4px;">19,690 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                                    <span class="badge badge-up" style="margin-top:8px;">↑ 7.1% 同比</span>
+                                </div>
+                                <div>
+                                    <div class="type-label-l text-sub">等效植树</div>
+                                    <div class="type-display-s" style="color:var(--color-textMain);margin-top:4px;">107.6万 <span class="type-caption-m text-sub">棵</span></div>
+                                    <span class="badge badge-up" style="margin-top:8px;">↑ 7.1% 同比</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 右側：年度趨勢 -->
+                <div style="display:flex; flex-direction:column; gap:16px; height:100%;">
+                    <div class="iwa-frontend-card" style="flex:1; display:flex; flex-direction:column;">
+                        <div class="card-header">
+                            <div class="card-title">年度能源实际消费量趋势 2022–2025</div>
+                            <span class="type-caption-m text-sub">各能源來源佔比（%）</span>
+                        </div>
+                        <div id="stackedBar" class="trend-chart-wrap"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 下列：依 BU（全寬） -->
+            <div class="iwa-frontend-card">
+                <div class="card-header">
+                    <div class="card-title">年度能源实际消费量趋势 2022–2025 — 依 BU</div>
+                    <span class="type-caption-m text-sub">各厂区佔比（%）</span>
+                </div>
+                <div id="stackSwitchChart" style="height:280px;"></div>
+            </div>
+        </section>
+
+    </div>
+</main>
+</div>
+
+<!-- ===== 閾值設定 Modal ===== -->
+<div class="modal-overlay" id="thresholdModal" onclick="if(event.target===this)closeThresholdModal()">
+    <div class="modal-box">
+        <!-- Header 85px -->
+        <div class="modal-hd">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><g clip-path="url(#clip_th)"><path d="M10.9091 0.454529C12.0038 0.454529 12.8909 1.34167 12.8909 2.43635L12.8891 3.13362L13.314 2.6432C14.0435 1.90916 15.2069 1.8685 15.9847 2.52541L16.0814 2.61378L17.3547 3.85736C17.7319 4.22751 17.9443 4.73378 17.9453 5.25363C17.9572 5.79393 17.7415 6.31541 17.3578 6.68503L16.8882 7.15362L17.6489 7.15504C18.6632 7.20339 19.4702 8.00427 19.5405 9.00167L19.5455 9.14544V10.9091C19.5455 12.0038 18.6582 12.8918 17.5636 12.8918L16.8691 12.89L17.3295 13.3503C18.0633 14.0796 18.1043 15.2427 17.4493 16.0204L17.3402 16.1399L16.1442 17.3531C15.777 17.7309 15.2735 17.9442 14.7393 17.9454C14.2151 17.9384 13.7151 17.7283 13.3487 17.3641L12.8445 16.8691L12.8449 17.6489C12.7966 18.6632 11.9957 19.4702 10.9983 19.5405L10.8545 19.5454H9.13636C8.04169 19.5454 7.15454 18.6583 7.15454 17.5636L7.15454 16.8491L6.68603 17.3568C5.95673 18.0905 4.79365 18.1315 4.01591 17.4766L3.89643 17.3674L3.87844 17.348L2.6463 16.1436C2.3088 15.8145 2.1028 15.3768 2.06203 14.9111L2.05454 14.7353C2.05572 14.2033 2.26627 13.6932 2.64244 13.3147L3.11273 12.8445L2.43392 12.8454C1.3861 12.8398 0.531807 12.0258 0.459502 10.9962L0.454544 10.8545V9.13634C0.454544 8.04167 1.34169 7.15453 2.43636 7.15453L3.15 7.15453L2.64346 6.68626C1.90854 5.95696 1.86817 4.79336 2.47669 4.07476L2.57816 3.96512C2.60889 3.92558 2.62119 3.90977 2.62812 3.90172L3.85584 2.64684C4.22298 2.26904 4.72649 2.05571 5.25255 2.05453C5.7887 2.05219 6.30381 2.26332 6.68505 2.64221L7.15363 3.11089L7.15455 2.4339C7.16018 1.38669 7.97441 0.531845 9.0038 0.45949L9.14545 0.454529H10.9091ZM10.9091 1.36362H9.14545C8.55019 1.36362 8.06683 1.84422 8.06363 2.43635V3.36362C8.06363 3.70076 7.84518 3.93692 7.62092 4.01715C7.3685 4.18167 7.04283 4.18167 6.78971 4.01815L6.71495 3.95776L6.04322 3.28603C5.83427 3.07837 5.55116 2.96233 5.25556 2.96362C4.97337 2.96425 4.7042 3.07829 4.50677 3.28145L3.28505 4.53049L3.1964 4.63068C2.86706 5.04904 2.89582 5.65597 3.27229 6.02994L3.99956 6.70266L4.07376 6.79132C4.20712 6.9997 4.23615 7.25703 4.13427 7.53703L4.11665 7.5683C4.01328 7.8447 3.75961 8.03731 3.42727 8.06362H2.43636C1.84376 8.06362 1.36363 8.54375 1.36363 9.13634V10.8545C1.36363 11.4501 1.84368 11.9332 2.43636 11.9363H3.36363C3.70077 11.9363 3.93694 12.1548 4.01817 12.3806C4.18135 12.6332 4.18135 12.9563 4.01915 13.2096L3.95756 13.2862L3.28604 13.9568C3.08004 14.164 2.96428 14.4445 2.96363 14.7374C2.963 15.022 3.07731 15.2941 3.28147 15.4932L4.5305 16.7149L4.62945 16.8039C5.01623 17.1074 5.56355 17.106 5.93968 16.8083L6.02995 16.7277L6.70268 16.0004L6.79134 15.9262C7.05434 15.7579 7.39111 15.7579 7.65411 15.9262L7.60909 15.9018L7.65723 15.9232C7.8284 16.0138 7.95827 16.1677 8.02236 16.3636L8.04882 16.4649L8.06363 16.5727V17.5636C8.06363 18.1562 8.54376 18.6363 9.13636 18.6363H10.855C11.433 18.637 11.9093 18.1832 11.9364 17.6273V16.6363C11.9364 16.2992 12.1548 16.063 12.383 15.9803C12.6347 15.8199 12.9562 15.8199 13.2786 16.0359L13.984 16.7139C14.1885 16.9171 14.4631 17.0325 14.7444 17.0363C15.0266 17.0357 15.2958 16.9217 15.4943 16.7174L16.6877 15.5058L16.7766 15.4069C17.1054 14.9878 17.0755 14.3796 16.6877 13.9941L15.9877 13.2941L15.9283 13.2209C15.7638 12.9685 15.7638 12.6428 15.9273 12.3897L15.8991 12.4391L15.9234 12.3879C16.0296 12.1875 16.2222 12.0439 16.4655 11.9968L16.5727 11.9827H17.5636C18.156 11.9827 18.6364 11.5019 18.6364 10.9091V9.14493C18.637 8.56695 18.1832 8.09064 17.6273 8.06362H16.6364C16.2992 8.06362 16.063 7.84516 15.9818 7.61937C15.8185 7.36651 15.8185 7.04255 15.8185 6.78968L16.0422 6.71493L16.721 6.03628C16.9282 5.83664 17.0428 5.55967 17.0364 5.26464C17.0357 4.97873 16.9212 4.7056 16.7185 4.50675L15.4773 3.29271L15.3694 3.19644C14.9834 2.89264 14.437 2.89323 14.0687 3.18224L13.9806 3.2605L13.3533 3.98777L13.2555 4.07284C12.993 4.24221 12.6546 4.24221 12.3913 4.07374L12.4336 4.09635L12.3889 4.0772C12.1883 3.97164 12.045 3.77965 11.9966 3.53516L11.9818 3.42726V2.43635C11.9818 1.84375 11.5017 1.36362 10.9091 1.36362ZM10 6.36353L10.1815 6.36798C12.1055 6.46255 13.6364 8.05244 13.6364 9.99989C13.6364 12.0088 12.0086 13.6363 10 13.6363C7.99139 13.6363 6.36363 12.0088 6.36363 9.99989C6.36363 8.05244 7.89451 6.46255 9.81851 6.36798L10 6.36353ZM10 7.27262L9.83975 7.27725C8.4081 7.3602 7.27272 8.54745 7.27272 9.99989C7.27272 11.5067 8.49343 12.7272 10 12.7272C11.5066 12.7272 12.7273 11.5067 12.7273 9.99989C12.7273 8.54745 11.5919 7.3602 10.1602 7.27725L10 7.27262Z" fill="white"/></g><defs><clipPath id="clip_th"><rect width="20" height="20" fill="white"/></clipPath></defs></svg>
+            <span class="modal-hd-title">阀值设定</span>
+        </div>
+        <!-- Body flex:1 -->
+        <div class="modal-body">
+            <div class="modal-desc-bar">设定各强度指标的警示上下限，超出范围时系统将显示警告</div>
+            <div class="modal-th-row">
+                <div>
+                    <div class="modal-th-name">万元产值能耗（OVEI）</div>
+                    <div class="modal-th-unit">kWh / 万元</div>
+                </div>
+                <div class="modal-th-fields">
+                    <div class="modal-th-field">
+                        <span class="modal-th-lbl">目标下限</span>
+                        <input class="th-input" type="number" id="th-ovei-warn" value="12" step="0.1">
+                    </div>
+                    <div class="modal-th-field">
+                        <span class="modal-th-lbl">目标上限</span>
+                        <input class="th-input" type="number" id="th-ovei-high" value="15" step="0.1">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-th-row">
+                <div>
+                    <div class="modal-th-name">单位产品能耗（UPEI）</div>
+                    <div class="modal-th-unit">kWh / 件</div>
+                </div>
+                <div class="modal-th-fields">
+                    <div class="modal-th-field">
+                        <span class="modal-th-lbl">目标下限</span>
+                        <input class="th-input" type="number" id="th-upei-warn" value="120" step="0.1">
+                    </div>
+                    <div class="modal-th-field">
+                        <span class="modal-th-lbl">目标上限</span>
+                        <input class="th-input" type="number" id="th-upei-high" value="135" step="0.1">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Footer 72px 置底 -->
+        <div class="modal-footer">
+            <button class="btn-pill btn-primary" onclick="closeThresholdModal()">取消</button>
+            <button class="btn-pill btn-primary" onclick="saveThreshold()">确定</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 月度明細 Detail Modal ===== -->
+<div class="detail-modal-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetailPanel()">
+    <div class="detail-modal" id="detailPanel">
+        <div class="detail-modal-header">
+            <div class="detail-modal-title">详细明细</div>
+        </div>
+        <div class="detail-modal-section-hd">
+            <span class="detail-modal-section-name" id="detail-title"></span>
+            <span class="detail-modal-section-meta" id="detail-subtitle"></span>
+        </div>
+        <div class="detail-modal-body" id="detail-body"></div>
+        <div class="detail-modal-footer">
+            <button class="btn-pill btn-primary" onclick="closeDetailPanel()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* Dropdown */
+function toggleDD(id) {
+    const wrap = document.getElementById(id);
+    const isOpen = wrap.classList.contains('open');
+    document.querySelectorAll('.iwa-dd2-wrap.open').forEach(w => w.classList.remove('open'));
+    if (!isOpen) wrap.classList.add('open');
+}
+function selectDD(id, value, el) {
+    document.getElementById(id + '-val').textContent = value;
+    el.closest('.iwa-dd2-panel').querySelectorAll('.dd2-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById(id).classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.iwa-dd2-wrap')) document.querySelectorAll('.iwa-dd2-wrap.open').forEach(w => w.classList.remove('open'));
+});
+
+/* Sidebar */
+const sidebar = document.getElementById('mainSidebar');
+const mainPinBtn = document.getElementById('sidebarPinBtn');
+const panels = document.querySelectorAll('.submenu-panel');
+const menuItems = document.querySelectorAll('.menu-item[data-target]');
+let isMainSidebarPinned = true, globalHideTimeout = null;
+mainPinBtn.addEventListener('click', () => {
+    isMainSidebarPinned = !isMainSidebarPinned;
+    if (isMainSidebarPinned) { sidebar.classList.remove('mini'); mainPinBtn.classList.add('active'); }
+    else { sidebar.classList.add('mini'); mainPinBtn.classList.remove('active'); panels.forEach(p => p.classList.remove('open')); }
+});
+sidebar.addEventListener('mouseenter', () => { clearTimeout(globalHideTimeout); if (!isMainSidebarPinned) sidebar.classList.remove('mini'); });
+sidebar.addEventListener('mouseleave', () => {
+    clearTimeout(globalHideTimeout);
+    globalHideTimeout = setTimeout(() => {
+        const hasPinned = Array.from(panels).some(p => p.dataset.pinned === 'true');
+        if (!isMainSidebarPinned) {
+            if (!hasPinned) { sidebar.classList.add('mini'); panels.forEach(p => p.classList.remove('open')); }
+            else { sidebar.classList.remove('mini'); panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); }); }
+        } else { panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); }); }
+        menuItems.forEach(item => { if (item.dataset.target !== 'panel-energy') item.classList.remove('active'); });
+    }, 1000);
+});
+menuItems.forEach(item => {
+    item.addEventListener('mouseenter', () => {
+        const targetId = item.dataset.target;
+        if (targetId === 'dashboard') return;
+        menuItems.forEach(m => m.classList.remove('active'));
+        item.classList.add('active');
+        panels.forEach(p => { if (p.id === targetId) p.classList.add('open'); else if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+    });
+});
+panels.forEach(panel => {
+    const pinBtn = panel.querySelector('.pin-btn');
+    pinBtn.addEventListener('click', () => {
+        const isPinned = panel.dataset.pinned === 'true';
+        panel.dataset.pinned = !isPinned;
+        pinBtn.classList.toggle('active', !isPinned);
+    });
+});
+
+/* Clock */
+function updateClock() {
+    const n = new Date(), pad = x => String(x).padStart(2,'0');
+    document.getElementById('realtime-clock').textContent = `${n.getFullYear()}/${pad(n.getMonth()+1)}/${pad(n.getDate())} ${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
+}
+updateClock(); setInterval(updateClock, 1000);
+
+/* Fullscreen */
+document.getElementById('btn-fullscreen').addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().then(() => document.body.classList.add('is-fullscreen'));
+    else document.exitFullscreen();
+});
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) document.body.classList.remove('is-fullscreen');
+    setTimeout(() => allCharts.forEach(c => c.resize()), 350);
+});
+
+/* Charts */
+const allCharts = [];
+const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+const consumptionTrend = echarts.init(document.getElementById('consumptionTrend'));
+consumptionTrend.setOption({
+    grid: { top: 40, right: 20, bottom: 25, left: 60 },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(255,255,255,0.04)' } }, backgroundColor: 'rgba(33,40,49,0.95)', borderColor: 'rgba(255,255,255,0.50)', borderWidth: 0.5, textStyle: { color: '#fff' } },
+    legend: { data: ['2025年','2024年'], icon: 'circle', textStyle: { color: 'rgba(255,255,255,0.70)', fontSize: 12 }, left: 'center', top: 0, itemWidth: 8, itemHeight: 8 },
+    xAxis: { type: 'category', data: months, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 11 } },
+    yAxis: { type: 'value', name: 'tce', nameTextStyle: { color: 'rgba(255,255,255,0.50)', fontSize: 11 }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 11 } },
+    series: [
+        { name: '2025年', type: 'line', smooth: true, symbol: 'none', data: [220,245,310,285,320,340,360,315,298,305,290,280], itemStyle: { color: '#00B0FF' }, areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(0,103,255,0.25)'},{offset:1,color:'rgba(0,103,255,0)'}]) }, emphasis: { focus: 'self' }, blur: { lineStyle: { opacity: 0.2 } } },
+        { name: '2024年', type: 'line', smooth: true, symbol: 'none', data: [195,220,280,260,295,310,330,290,270,285,268,260], lineStyle: { type: 'dashed' }, itemStyle: { color: 'rgba(255,255,255,0.70)' }, emphasis: { focus: 'self' }, blur: { lineStyle: { opacity: 0.2 } } }
+    ]
+});
+allCharts.push(consumptionTrend);
+
+const donutChart = echarts.init(document.getElementById('donutChart'));
+donutChart.setOption({
+    tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(33,40,49,0.95)', borderColor: 'rgba(255,255,255,0.50)', borderWidth: 0.5, textStyle: { color: '#fff' }, formatter: '{b}: {c} tce ({d}%)' },
+    legend: { show: false },
+    series: [{
+        type: 'pie', radius: ['55%','72%'], center: ['50%','50%'],
+        label: { show: false }, labelLine: { show: false },
+        emphasis: { label: { show: true, fontSize: 13, fontWeight: 'bold', color: '#fff' } },
+        data: [
+            { value: 308,  name: '国网电',   itemStyle: { color: '#00B0FF' } },
+            { value: 166,  name: '光伏',     itemStyle: { color: '#A6FFB2' } },
+            { value: 326,  name: '天然气',   itemStyle: { color: '#F8B62D' } }
+        ]
+    }],
+    graphic: [{
+        type: 'group', left: 'center', top: 'middle',
+        children: [
+            { type: 'text', top: -32, style: { text: '折标煤量', fill: 'rgba(255,255,255,0.50)', fontSize: 12, fontWeight: 400, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui', textAlign: 'center' } },
+            { type: 'text', top: -12, style: { text: '3,248',   fill: '#ffffff',               fontSize: 28, fontWeight: 600, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui', textAlign: 'center' } },
+            { type: 'text', top: 24,  style: { text: 'tce',     fill: 'rgba(255,255,255,0.50)', fontSize: 12, fontWeight: 400, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui', textAlign: 'center' } }
+        ]
+    }]
+});
+allCharts.push(donutChart);
+
+const stackedBar = echarts.init(document.getElementById('stackedBar'));
+stackedBar.setOption({
+    grid: { top: 40, right: 20, bottom: 35, left: 55 },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(255,255,255,0.04)' } }, backgroundColor: 'rgba(33,40,49,0.95)', borderColor: 'rgba(255,255,255,0.50)', borderWidth: 0.5, textStyle: { color: '#fff' } },
+    legend: { data: ['国网电','光伏','天然气'], icon: 'circle', textStyle: { color: 'rgba(255,255,255,0.70)', fontSize: 12 }, left: 'center', top: 0, itemWidth: 8, itemHeight: 8 },
+    xAxis: { type: 'category', data: ['2022 年','2023 年','2024 年','2025 年'], axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: 'rgba(255,255,255,0.70)' } },
+    yAxis: { type: 'value', max: 100, axisLabel: { color: 'rgba(255,255,255,0.70)', formatter: '{value}%' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+    series: [
+        { name: '国网电',   type: 'bar', stack: 'total', data: [77.5, 69.9, 56.0,  9.5], itemStyle: { color: '#00B0FF' }, emphasis: { focus: 'series' }, blur: { itemStyle: { opacity: 0.35 } } },
+        { name: '光伏',    type: 'bar', stack: 'total', data: [0,    11.0, 23.3,  5.1], itemStyle: { color: '#A6FFB2' }, emphasis: { focus: 'series' }, blur: { itemStyle: { opacity: 0.35 } } },
+        { name: '天然气',  type: 'bar', stack: 'total', data: [10.7, 10.8, 11.0, 10.5], itemStyle: { color: '#F8B62D' }, emphasis: { focus: 'series' }, blur: { itemStyle: { opacity: 0.35 } } }
+    ]
+});
+allCharts.push(stackedBar);
+
+/* Stack Switch Chart */
+const STACK_SOURCE_SW = {
+    categories: ['国网电','光伏','天然气'],
+    colors:     ['#50E3C2','#A6FFB2','#176823'],
+    data: {
+        2022:[2210, 130, 305],
+        2023:[2050, 150, 320],
+        2024:[1680, 160, 330],
+        2025:[ 310, 165, 340]
+    }
+};
+const STACK_BU_SW = {
+    categories: ['MFG','MAG','LED','餐厅+福利社'],
+    colors:     ['#409EF3','#ED84FF','#17D1F7','#FE865A'],
+    data: {
+        2022:[1710, 712, 284, 144],
+        2023:[1772, 736, 294, 148],
+        2024:[1800, 750, 300, 150],
+        2025:[1950, 812, 323, 163]
+    }
+};
+let currentStackMode = 'bu';
+const stackSwitchChart = echarts.init(document.getElementById('stackSwitchChart'));
+
+function renderStackSwitch() {
+    const years = [2022, 2023, 2024, 2025];
+    const cfg = currentStackMode === 'source' ? STACK_SOURCE_SW : STACK_BU_SW;
+    const totals = years.map(y => cfg.data[y].reduce((a,b) => a+b, 0));
+    const series = cfg.categories.map((c,i) => ({
+        name: c, type: 'bar', stack: 'total',
+        itemStyle: { color: cfg.colors[i] },
+        emphasis: { focus: 'series' }, blur: { itemStyle: { opacity: 0.35 } },
+        label: { show: false },
+        data: years.map((y, yi) => {
+            const raw = cfg.data[y][i];
+            const pct = parseFloat(((raw / totals[yi]) * 100).toFixed(1));
+            return { value: pct, raw };
+        })
+    }));
+    stackSwitchChart.setOption({
+        grid: { top: 50, right: 24, bottom: 40, left: 56 },
+        tooltip: {
+            trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(255,255,255,0.04)' } },
+            backgroundColor: 'rgba(33,40,49,0.95)', borderColor: 'rgba(255,255,255,0.50)', borderWidth: 0.5,
+            textStyle: { color: '#fff', fontSize: 12 },
+            formatter: function(params) {
+                let html = `<div style="font-weight:600;margin-bottom:4px;">${params[0].axisValueLabel}</div>`;
+                params.forEach(p => {
+                    html += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></span>
+                        <span style="flex:1;">${p.seriesName}</span>
+                        <span style="font-weight:600;margin-left:12px;">${p.data.value.toFixed(1)}%</span>
+                        <span style="color:rgba(255,255,255,0.50);font-size:11px;">(${p.data.raw.toLocaleString()} tce)</span>
+                    </div>`;
+                }); return html;
+            }
+        },
+        legend: { data: cfg.categories, icon: 'circle', textStyle: { color: 'rgba(255,255,255,0.70)', fontSize: 11 }, top: 0, itemWidth: 8, itemHeight: 8 },
+        xAxis: { type: 'category', data: years.map(y => y + ' 年'), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: 'rgba(255,255,255,0.70)' } },
+        yAxis: { type: 'value', name: '%', min: 0, max: 100, axisLine: { show: false }, axisTick: { show: false }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: 'rgba(255,255,255,0.70)', formatter: '{value}%' }, nameTextStyle: { color: 'rgba(255,255,255,0.50)' } },
+        series
+    }, true);
+}
+
+function switchStackMode(el) {
+    document.querySelectorAll('.stack-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentStackMode = el.dataset.mode;
+    renderStackSwitch();
+}
+
+renderStackSwitch();
+allCharts.push(stackSwitchChart);
+
+/* Filter Apply */
+const KPI_MOCK = {
+    '2025': { consumption:'3,248', cost:'2,716', carbon:'19,690', cb:'up', ct:'↑ 8.3% 同比', sb:'up', st:'↑ 6.5% 同比', rb:'up', rt:'↑ 7.1% 同比' },
+    '2024': { consumption:'2,998', cost:'2,551', carbon:'18,205', cb:'up', ct:'↑ 3.1% 同比', sb:'up', st:'↑ 2.8% 同比', rb:'up', rt:'↑ 2.9% 同比' },
+    '2023': { consumption:'2,908', cost:'2,481', carbon:'17,690', cb:'down', ct:'↓ 1.2% 同比', sb:'down', st:'↓ 0.8% 同比', rb:'down', rt:'↓ 1.1% 同比' },
+    '2022': { consumption:'2,960', cost:'2,530', carbon:'18,100', cb:'up', ct:'↑ 5.2% 同比', sb:'up', st:'↑ 4.9% 同比', rb:'up', rt:'↑ 5.0% 同比' }
+};
+
+function applyFilters() {
+    const year = document.getElementById('fb-year-val').textContent.trim();
+    const compare = document.getElementById('fb-compare-val').textContent.trim();
+    const d = KPI_MOCK[year] || KPI_MOCK['2025'];
+
+    // 更新 KPI 數值
+    document.getElementById('kpi-consumption').textContent = d.consumption;
+    document.getElementById('kpi-cost').textContent = d.cost;
+    document.getElementById('kpi-carbon').textContent = d.carbon;
+
+    // 更新趨勢 badge
+    const setBadge = (id, cls, txt) => {
+        const el = document.getElementById(id);
+        el.className = `badge badge-${cls}`; el.textContent = txt;
+    };
+    setBadge('kpi-consumption-badge', d.cb, d.ct);
+    setBadge('kpi-cost-badge',        d.sb, d.st);
+    setBadge('kpi-carbon-badge',      d.rb, d.rt);
+
+    // 顯示/隱藏比較折線
+    const showCompare = compare !== '無比較';
+    consumptionTrend.setOption({ series: [
+        { name: '2025年', opacity: 1 },
+        { name: '2024年', lineStyle: { opacity: showCompare ? 1 : 0 }, itemStyle: { opacity: showCompare ? 1 : 0 } }
+    ]});
+
+    // 重繪所有圖表
+    allCharts.forEach(c => c.resize());
+}
+
+/* Threshold Modal */
+const TH = { ovei: { warn: 12.0, high: 15.0 }, upei: { warn: 120.0, high: 135.0 } };
+
+function openThresholdModal() {
+    document.getElementById('th-ovei-warn').value = TH.ovei.warn;
+    document.getElementById('th-ovei-high').value = TH.ovei.high;
+    document.getElementById('th-upei-warn').value = TH.upei.warn;
+    document.getElementById('th-upei-high').value = TH.upei.high;
+    document.getElementById('thresholdModal').classList.add('open');
+}
+function closeThresholdModal() {
+    document.getElementById('thresholdModal').classList.remove('open');
+}
+function saveThreshold() {
+    TH.ovei.warn = parseFloat(document.getElementById('th-ovei-warn').value);
+    TH.ovei.high = parseFloat(document.getElementById('th-ovei-high').value);
+    TH.upei.warn = parseFloat(document.getElementById('th-upei-warn').value);
+    TH.upei.high = parseFloat(document.getElementById('th-upei-high').value);
+    closeThresholdModal();
+}
+
+/* Detail Panel */
+const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+const MONTHLY = {
+    ovei: {
+        label: '万元产值能耗（OVEI）',
+        unit: 'kWh/万元',
+        col1: '能源消耗（KWh）',
+        col2: '产值（万元）',
+        col3: 'OVEI',
+        years: {
+            2025: { energy: [2800,2950,3200,3050,3400,3600,3800,3300,3100,3200,3050,2900], denom: [195,202,215,208,225,235,245,215,205,210,200,192] },
+            2024: { energy: [2600,2750,3000,2850,3200,3400,3550,3100,2900,3000,2850,2700], denom: [210,220,240,225,248,260,270,240,225,238,220,208] },
+            2023: { energy: [2400,2520,2780,2650,2950,3100,3280,2880,2700,2800,2640,2500], denom: [205,215,232,220,240,252,265,232,218,228,212,200] }
+        }
+    },
+    upei: {
+        label: '单位产品能耗（UPEI）',
+        unit: 'kWh/件',
+        col1: '能源消耗（KWh）',
+        col2: '产量（件）',
+        col3: 'UPEI',
+        years: {
+            2025: { energy: [2800,2950,3200,3050,3400,3600,3800,3300,3100,3200,3050,2900], denom: [21800,22900,24800,23700,26200,27800,29400,25600,24100,24800,23600,22400] },
+            2024: { energy: [2600,2750,3000,2850,3200,3400,3550,3100,2900,3000,2850,2700], denom: [20800,21900,24100,22800,25800,27200,28500,24900,23200,24000,22800,21600] },
+            2023: { energy: [2400,2520,2780,2650,2950,3100,3280,2880,2700,2800,2640,2500], denom: [19200,20300,22500,21200,24000,25400,27000,23200,21800,22800,21200,20000] }
+        }
+    }
+};
+
+function getLevel(type, val) {
+    if (val >= TH[type].high) return { color: 'var(--color-statusHigh)', label: '高於' };
+    if (val >= TH[type].warn) return { color: 'var(--color-statusWarn)', label: '正常' };
+    return { color: 'var(--color-statusNormal)', label: '低於' };
+}
+
+function openDetailPanel(type) {
+    const cfg = MONTHLY[type];
+    document.getElementById('detail-title').textContent = cfg.label + ' — 月度明細';
+    document.getElementById('detail-subtitle').textContent = '單位：' + cfg.unit + '　資料年份：2023–2025';
+
+    let bodyHtml = '';
+    [2025, 2024, 2023].forEach(year => {
+        const d = cfg.years[year];
+        const vals = d.energy.map((e, i) => parseFloat((e / d.denom[i]).toFixed(1)));
+        const avg = parseFloat((vals.reduce((a,b) => a+b,0) / vals.length).toFixed(1));
+        bodyHtml += `
+        <div class="year-group">
+            <div class="year-group-title">
+                <span class="year-badge">${year}</span>
+                <span class="year-avg">年均 ${avg} ${cfg.unit}</span>
+            </div>
+            <div class="detail-table">
+                <div class="detail-table-header">
+                    <span>月份</span>
+                    <span>${cfg.col1}</span>
+                    <span>${cfg.col2}</span>
+                    <span>${cfg.col3}</span>
+                </div>`;
+        MONTH_LABELS.forEach((m, i) => {
+            const lv = getLevel(type, vals[i]);
+            bodyHtml += `
+                <div class="detail-row">
+                    <span class="detail-month">${m}</span>
+                    <span class="detail-energy">${d.energy[i].toLocaleString()}</span>
+                    <span class="detail-denom">${d.denom[i].toLocaleString()}</span>
+                    <span class="detail-result" style="color:${lv.color};">${vals[i]} <span style="font-size:10px;font-weight:400;">${lv.label}</span></span>
+                </div>`;
+        });
+        bodyHtml += `</div></div>`;
+    });
+
+    document.getElementById('detail-body').innerHTML = bodyHtml;
+    document.getElementById('detailOverlay').classList.add('open');
+}
+
+function closeDetailPanel() {
+    document.getElementById('detailOverlay').classList.remove('open');
+}
+
+window.addEventListener('resize', () => allCharts.forEach(c => c.resize()));
+</script>
+</body>
+</html>

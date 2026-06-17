@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IWA 数字能碳管理 - 用能与碳排放预算管理</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        /* =========================================
+           1. 核心设计变量（对齐 IWA Dashboard V2）
+        ========================================= */
+        :root {
+            /* 背景色（对齐 IWA Figma Web Dark） */
+            --color-bgBase:        #212831;
+            --color-bgPanel:       #2C333C;
+            --color-bg-chart-info: #313234;
+            --color-bg-alarm:      #2C3744;
+            --color-bg-menu-lv1:   #283A51;
+            --color-bg-menu-lv2:   #1D2C40;
+            --color-bg-menu-lv3:   #0D1F36;
+            --color-bgHover: rgba(255, 255, 255, 0.05);
+
+            /* 品牌色 */
+            --color-accentPrimary: #F8B62D;
+            --color-accentHover:   #FFD06A;
+            --color-brand-blue:    #2A4464;
+            --color-indicator:     #00B0FF;
+
+            /* 文字色 */
+            --color-textMain:  #ffffff;
+            --color-textSub:   rgba(255,255,255,0.70);
+            --color-textMuted: rgba(255,255,255,0.50);
+            --color-divider:   rgba(255,255,255,0.08);
+
+            /* 状态色 */
+            --color-statusHigh:   #FF2D55;
+            --color-statusWarn:   #F1DE75;
+            --color-statusNormal: #5CC736;
+
+            font-family: "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--color-bgBase);
+            color: var(--color-textSub);
+            font-size: 14px;
+            overflow: hidden;
+        }
+        a { color: inherit; text-decoration: none; }
+        button { font-family: inherit; }
+
+        /* Typography utilities */
+        .type-display-l { font-size: 40px; font-weight: 600; }
+        .type-display-m { font-size: 35px; font-weight: 600; }
+        .type-display-s { font-size: 30px; font-weight: 600; }
+        .type-title-xl  { font-size: 28px; font-weight: 500; }
+        .type-title-l   { font-size: 24px; font-weight: 500; }
+        .type-title-m   { font-size: 20px; font-weight: 600; }
+        .type-body-l        { font-size: 20px; font-weight: 400; }
+        .type-body-m        { font-size: 16px; font-weight: 400; }
+        .type-body-m-medium { font-size: 16px; font-weight: 500; }
+        .type-body-m-light  { font-size: 16px; font-weight: 300; }
+        .type-label-xl { font-size: 16px; font-weight: 600; }
+        .type-label-l  { font-size: 14px; font-weight: 400; }
+        .type-label-m  { font-size: 13px; font-weight: 400; }
+        .type-label-s  { font-size: 12px; font-weight: 500; }
+        .type-label-xs { font-size: 11px; font-weight: 400; }
+        .type-caption-l { font-size: 13px; font-weight: 300; }
+        .type-caption-m { font-size: 12px; font-weight: 400; }
+        .type-caption-s { font-size: 11px; font-weight: 300; }
+        .text-white { color: var(--color-textMain); }
+        .text-muted { color: var(--color-textMuted); }
+
+        /* =========================================
+           2. 版面结构（沿用 6-能效平衡与优化）
+        ========================================= */
+        .layout-wrapper { display: flex; height: 100vh; overflow: hidden; }
+
+        .iwa-frontend-sidebar {
+            width: 220px;
+            background: var(--color-bg-menu-lv1);
+            box-shadow: 0px 4px 4px rgba(0,0,0,0.25);
+            transition: width 300ms cubic-bezier(0.4,0,0.2,1), transform 300ms ease-in-out, opacity 300ms ease-in-out;
+            position: relative;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding-top: 17px;
+        }
+        .brand-area { padding: 0 10px; display: flex; align-items: center; gap: 10px; }
+        .brand-logo-text { display: flex; align-items: center; gap: 10px; flex: 1; }
+        .brand-logo {
+            width: 26px; height: 26px; border-radius: 5.91px;
+            border: 0.59px solid white; background: white;
+            color: var(--color-bgBase); font-size: 10px; font-weight: 600;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .pin-btn {
+            background: rgba(15,26,42,0.80);
+            border: none;
+            cursor: pointer;
+            width: 26px; height: 26px; border-radius: 9999px;
+            display: flex; align-items: center; justify-content: center;
+            color: #a9a9a9;
+            transition: background 150ms, color 150ms;
+            flex-shrink: 0;
+        }
+        .pin-btn.active { color: var(--color-indicator); }
+        .pin-btn:hover { background: rgba(15,26,42,1); color: #9adfff; }
+
+        .menu-list { list-style: none; flex: 1; overflow-y: auto; padding-right: 5px; }
+        .menu-item {
+            height: 42px; padding: 10px 10px 10px 25px;
+            display: flex; align-items: center; cursor: pointer;
+            position: relative; color: white;
+            font-size: 16px; font-weight: 400; border-radius: 5px;
+            transition: background 150ms, color 150ms;
+        }
+        .menu-item .icon-wrap {
+            width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin-right: 5px;
+        }
+        .menu-item .text { flex: 1; white-space: nowrap; }
+        .menu-item::before {
+            content: ''; position: absolute; left: 0; top: 5px; bottom: 5px;
+            width: 3px; background: var(--color-accentPrimary);
+            border-radius: 0 4px 3px 0; opacity: 0; transition: opacity 150ms;
+        }
+        .menu-item:hover { background: rgba(0,176,255,0.10); }
+        .menu-item.active { color: var(--color-accentPrimary); }
+        .menu-item.active::before { opacity: 1; }
+
+        .iwa-frontend-sidebar.mini { width: 64px; padding-top: 17px; gap: 16px; }
+        .iwa-frontend-sidebar.mini .brand-text,
+        .iwa-frontend-sidebar.mini .menu-item .text { display: none !important; }
+        .iwa-frontend-sidebar.mini .menu-item { justify-content: center; padding: 0; }
+        .iwa-frontend-sidebar.mini .menu-item .icon-wrap { margin-right: 0; }
+        .iwa-frontend-sidebar.mini .brand-area { justify-content: center; padding: 0; }
+        .iwa-frontend-sidebar.mini .brand-logo-text { flex: 0 0 auto; }
+        .iwa-frontend-sidebar.mini .pin-btn { display: none; }
+
+        .submenu-panel {
+            position: absolute; left: 100%; top: 0;
+            width: 220px; height: 100vh;
+            background: var(--color-bg-menu-lv2);
+            transform: translateX(-20px); opacity: 0; pointer-events: none;
+            transition: transform 250ms cubic-bezier(0.4,0,0.2,1), opacity 250ms;
+            z-index: 99; display: flex; flex-direction: column; padding-top: 17px; gap: 8px;
+        }
+        .submenu-panel.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+        .submenu-header { height: 26px; padding: 0 10px; display: flex; align-items: center; justify-content: flex-end; }
+        .submenu-panel .menu-item { padding-left: 25px; }
+        .submenu-panel .menu-item:hover { background: rgba(0,176,255,0.10); }
+        .submenu-panel .menu-item.active { color: var(--color-accentPrimary); background: rgba(0,176,255,0.20); }
+        .submenu-panel .menu-item.active::before { opacity: 1; }
+
+        .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .iwa-frontend-header {
+            height: 60px;
+            background-color: var(--color-bgBase);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            transition: transform 300ms ease-in-out, opacity 300ms ease-in-out, height 300ms ease-in-out;
+        }
+        .breadcrumb { color: var(--color-textSub); font-size: 14px; font-weight: 400; }
+        .breadcrumb .sep { margin: 0 6px; color: var(--color-textMuted); }
+        .breadcrumb .current { color: var(--color-textMain); font-weight: 600; }
+        .header-controls { display: flex; align-items: center; gap: 16px; }
+        .header-icon { color: var(--color-textSub); cursor: pointer; font-size: 16px; transition: color 150ms; }
+        .header-icon:hover { color: #ffffff; }
+        .header-divider { height: 24px; border-left: 1px solid rgba(255,255,255,0.15); margin: 0 8px; }
+        .brand-time { display: flex; align-items: center; gap: 12px; }
+        .time-text { display: flex; flex-direction: column; align-items: flex-end; }
+
+        .content-wrapper {
+            flex: 1; padding: 0 24px 24px 24px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+        .inner-scroll-container::-webkit-scrollbar { width: 6px; height: 6px; }
+        .inner-scroll-container::-webkit-scrollbar-track { background: transparent; }
+        .inner-scroll-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+        .inner-scroll-container::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+        body.is-fullscreen .iwa-frontend-sidebar { transform: translateX(-100%); width: 0; opacity: 0; pointer-events: none; }
+        body.is-fullscreen .iwa-frontend-header { transform: translateY(-100%); height: 0; opacity: 0; pointer-events: none; }
+
+        /* =========================================
+           3. 页面内容组件（Dashboard V2）
+        ========================================= */
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 0 12px 0;
+        }
+        .page-title-row { display: flex; align-items: center; gap: 12px; }
+        .module-num {
+            width: 28px; height: 28px; border-radius: 8px;
+            background: transparent; border: 1px solid rgba(241,222,117,0.50);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--color-statusWarn); font-size: 16px; font-weight: 600; flex-shrink: 0;
+        }
+        .page-title-row h1 {
+            color: var(--color-textMain); font-size: 28px; font-weight: 500;
+            letter-spacing: 0.06em;
+        }
+        .page-subtitle { margin-top: 8px; color: var(--color-textMuted); font-size: 12px; font-weight: 400; }
+
+        .btn-secondary {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.10);
+            border: 1px solid rgba(255,255,255,0.70);
+            color: var(--color-textMain);
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 150ms ease;
+            font-size: 14px; font-weight: 400;
+        }
+        .btn-secondary:hover { background: #ffffff; color: var(--color-bgBase); }
+
+        .kpi-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .kpi-card,
+        .iwa-frontend-card {
+            background: var(--color-bgPanel);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0px 0px 24px rgba(0,0,0,0.50);
+            position: relative;
+            overflow: hidden;
+        }
+        /* .kpi-card::before {
+            content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+            width: 3px; background: var(--accent-bar, var(--color-accentPrimary)); */
+        /* } */
+        .kpi-card.warn::before { background: var(--color-statusWarn); }
+        .kpi-card.normal::before { background: var(--color-statusNormal); }
+        .kpi-label {
+            color: var(--color-textMuted);
+            font-size: 14px; font-weight: 400; margin-bottom: 10px;
+        }
+        .kpi-value {
+            color: var(--color-textMain);
+            font-size: 30px; font-weight: 600; line-height: 1.1;
+            display: flex; align-items: baseline; gap: 4px;
+        }
+        .kpi-value.warn { color: var(--color-statusWarn); }
+        .kpi-value.normal { color: var(--color-statusNormal); }
+        .kpi-unit { font-size: 14px; font-weight: 400; color: var(--color-textMuted); }
+        .kpi-sub {
+            margin-top: 10px; font-size: 12px; font-weight: 400; color: var(--color-textMuted);
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+
+        .progress-container { margin-top: 12px; }
+        .progress-bar-bg {
+            width: 100%; height: 8px; background-color: rgba(255,255,255,0.10);
+            border-radius: 4px; overflow: hidden; position: relative;
+        }
+        .progress-bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease-in-out; }
+        .progress-bar-fill.warn { background: var(--color-statusWarn); }
+        .progress-bar-fill.high { background: var(--color-statusHigh); }
+        .progress-bar-fill.normal { background: var(--color-statusNormal); }
+        .progress-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: var(--color-textMuted); }
+
+        /* Button 樣式 */
+        .btn-box {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 8px; padding: 10px 20px; border-radius: 20px;
+            background: none;
+            color: var(--color-textMain);
+            font-size: 16px; font-weight: 400;
+            transition: color 150ms ease;
+            cursor: pointer; border: none;
+        }
+        .btn-box:hover {
+            color: #F8B62D;
+        }
+        .btn-box:hover svg path {
+            fill: #F8B62D;
+        }
+
+        .grid-main { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+        .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .panel {
+            background: var(--color-bgPanel); border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0px 0px 24px rgba(0,0,0,0.50);
+        }
+        .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .panel-title { color: var(--color-textMain); font-size: 16px; font-weight: 400; }
+        .panel-actions { display: flex; gap: 12px; align-items: center; }
+        .legend-inline { display: flex; gap: 12px; font-size: 12px; color: var(--color-textSub); }
+        .legend-inline span { display: flex; align-items: center; gap: 4px; }
+        .legend-line { display:inline-block; width:10px; height:2px; background:var(--color-indicator); }
+        .legend-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--color-statusNormal); }
+
+        .budget-table { width: 100%; border-collapse: collapse; font-size: 14px; font-weight: 400; }
+        .budget-table th {
+            text-align: left; padding: 10px 8px;
+            color: var(--color-textMuted); font-weight: 500;
+            border-bottom: 1px solid var(--color-divider);
+            font-size: 12px;
+        }
+        .budget-table td {
+            padding: 12px 8px;
+            border-bottom: 1px solid var(--color-divider);
+            color: var(--color-textSub);
+            font-size: 14px; font-weight: 400;
+        }
+        .budget-table tr:last-child td { border-bottom: none; }
+        .budget-table .unit-name { color: var(--color-textMain); font-size: 14px; font-weight: 400; }
+        .progress-mini { display:flex; align-items:center; gap:8px; }
+        .progress-mini .progress-bar-bg { width:60px; height:6px; }
+
+        /* 新增樣式 - 來自 0-全站總覽_v1 */
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .card-title { color: var(--color-textMain); font-size: 16px; font-weight: 400; }
+        .iwa-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .iwa-table th { padding: 10px 8px; font-size: 12px; color: var(--color-textMuted); border-bottom: 1px solid var(--color-divider); font-weight: normal; }
+        .iwa-table td { padding: 10px 8px; font-size: 14px; border-bottom: 1px solid var(--color-divider); color: var(--color-textMain); vertical-align: middle; }
+        .iwa-table tr:hover { background: var(--color-bgHover); }
+        .sbadge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; border: 1px solid transparent; }
+        .sbadge-red    { background: rgba(255,45,85,0.15);    color: var(--color-statusHigh);   border-color: rgba(255,45,85,0.3); }
+        .sbadge-orange { background: rgba(241,222,117,0.15); color: var(--color-statusWarn);   border-color: rgba(241,222,117,0.3); }
+        .sbadge-green  { background: rgba(92,199,54,0.15);   color: var(--color-statusNormal); border-color: rgba(92,199,54,0.3); }
+
+        .status-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 6px 12px; border-radius: 8px;
+            font-size: 12px; font-weight: 500; border: 1px solid;
+            white-space: nowrap;
+        }
+        .status-badge.high { background: rgba(255,45,85,0.12); color: var(--color-statusHigh); border-color: rgba(255,45,85,0.30); }
+        .status-badge.warn { background: rgba(241,222,117,0.12); color: var(--color-statusWarn); border-color: rgba(241,222,117,0.30); }
+        .status-badge.normal { background: rgba(92,199,54,0.12); color: var(--color-statusNormal); border-color: rgba(92,199,54,0.30); }
+
+        .chart-container { position: relative; width: 100%; height: 280px; }
+
+        @media (max-width: 1400px) {
+            .kpi-strip { grid-template-columns: 1fr; }
+            .grid-main { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="layout-wrapper">
+    <nav class="iwa-frontend-sidebar mini" id="mainSidebar">
+        <div class="brand-area">
+            <div class="brand-logo-text">
+                <div class="brand-logo">SU</div>
+                <span class="type-body-m text-white brand-text">群电苏州厂</span>
+            </div>
+            <button class="pin-btn active" id="sidebarPinBtn" title="固定侧栏"><i class="fa-solid fa-thumbtack"></i></button>
+        </div>
+
+        <ul class="menu-list inner-scroll-container">
+            <a href="index.html"><li class="menu-item" data-target="dashboard"><div class="icon-wrap"><i class="fa-solid fa-chart-pie"></i></div><span class="text">全厂总览</span></li></a>
+            <a href="energy-monitor.html"><li class="menu-item" data-target="panel-energy"><div class="icon-wrap"><i class="fa-solid fa-bolt"></i></div><span class="text">能源智能监测</span></li></a>
+            <a href="efficiency-opt.html"><li class="menu-item" data-target="panel-efficiency"><div class="icon-wrap"><i class="fa-solid fa-leaf"></i></div><span class="text">能效诊断与优化</span></li></a>
+            <a href="carbon-mgmt.html"><li class="menu-item active" data-target="panel-carbon"><div class="icon-wrap"><i class="fa-solid fa-cloud"></i></div><span class="text">碳排放管理与核算</span></li></a>
+            <a href="supply-chain.html"><li class="menu-item" data-target="panel-supply"><div class="icon-wrap"><i class="fa-solid fa-link"></i></div><span class="text">价值链与资产运营</span></li></a>
+        </ul>
+
+        <div class="submenu-panel" id="panel-energy" data-pinned="false">
+            <div class="submenu-header"><button class="pin-btn"><i class="fa-solid fa-thumbtack"></i></button></div>
+            <ul class="menu-list">
+                <a href="energy-query.html"><li class="menu-item"><span class="text">① 能耗查询</span></li></a>
+                <a href="energy-intensity.html"><li class="menu-item"><span class="text">② 能源消费量与强度计算</span></li></a>
+                <a href="energy-flow.html"><li class="menu-item"><span class="text">⑤ 能流分析</span></li></a>
+            </ul>
+        </div>
+        <div class="submenu-panel" id="panel-efficiency" data-pinned="false">
+            <div class="submenu-header"><button class="pin-btn"><i class="fa-solid fa-thumbtack"></i></button></div>
+            <ul class="menu-list">
+                <a href="efficiency-analysis.html"><li class="menu-item"><span class="text">③ 消费分析与策略推荐</span></li></a>
+                <a href="efficiency-benchmark.html"><li class="menu-item"><span class="text">④ 能效对标</span></li></a>
+                <a href="efficiency-balance.html"><li class="menu-item"><span class="text">⑥ 能效平衡与优化</span></li></a>
+            </ul>
+        </div>
+        <div class="submenu-panel" id="panel-carbon" data-pinned="false">
+            <div class="submenu-header"><button class="pin-btn active"><i class="fa-solid fa-thumbtack"></i></button></div>
+            <ul class="menu-list">
+                <a href="carbon-budget.html"><li class="menu-item active"><span class="text">⑦ 用能与碳排放预算管理</span></li></a>
+                <a href="carbon-accounting.html"><li class="menu-item"><span class="text">⑧ 碳排放核算</span></li></a>
+                <a href="product-footprint.html"><li class="menu-item"><span class="text">⑨ 碳足迹核算</span></li></a>
+            </ul>
+        </div>
+        <div class="submenu-panel" id="panel-supply" data-pinned="false">
+            <div class="submenu-header"><button class="pin-btn"><i class="fa-solid fa-thumbtack"></i></button></div>
+            <ul class="menu-list">
+                <a href="supply-chain-mgmt.html"><li class="menu-item"><span class="text">⑩ 供应链碳管理</span></li></a>
+                <a href="carbon-audit.html"><li class="menu-item"><span class="text">⑪ 碳核查支撑</span></li></a>
+                <a href="carbon-assets.html"><li class="menu-item"><span class="text">⑫ 碳资产管理</span></li></a>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-area">
+        <header class="iwa-frontend-header">
+            <div class="breadcrumb">
+                数字能碳管理中心 <span class="sep">/</span> 碳排放管理与核算 <span class="sep">/</span> <span class="current">用能与碳排放预算管理</span>
+            </div>
+            <div class="header-controls">
+                <i class="fa-solid fa-moon header-icon"></i>
+                <i class="fa-solid fa-expand header-icon" id="btn-fullscreen"></i>
+                <i class="fa-regular fa-bell header-icon"></i>
+                <i class="fa-solid fa-border-all header-icon"></i>
+                <div style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <i class="fa-regular fa-user header-icon"></i>
+                    <span class="type-label-l">Admin User</span>
+                </div>
+                <div class="header-divider"></div>
+                <div class="brand-time">
+                    <div class="brand-logo" style="width:24px; height:24px; font-size:10px;">IWA</div>
+                    <div class="time-text">
+                        <span class="text-white type-label-l" style="font-weight:600;">IWA</span>
+                        <span class="type-label-xs" id="realtime-clock"></span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="content-wrapper inner-scroll-container">
+            <div class="page-header">
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div class="page-title-row">
+                        <div class="module-num">7</div>
+                        <h1>用能与碳排放预算管理</h1>
+                    </div>
+                    <div class="type-label-l">考核周期：2026/01/01 - 2026/12/31</div>
+                </div>
+                <button class="btn-box" title="预算报告"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline; margin-right:6px; vertical-align:middle;" class="download-icon"><g clip-path="url(#clip0_58_3314)"><path d="M19.2188 16.0938C19.65 16.0938 20 16.4438 20 16.875C20 18.5981 18.5981 20 16.875 20H3.125C1.40188 20 0 18.5981 0 16.875C0 16.4438 0.35 16.0938 0.78125 16.0938C1.2125 16.0938 1.5625 16.4438 1.5625 16.875C1.5625 17.7362 2.26375 18.4375 3.125 18.4375H16.875C17.7362 18.4375 18.4375 17.7362 18.4375 16.875C18.4375 16.4438 18.7875 16.0938 19.2188 16.0938ZM14.8394 8.93875C15.145 8.63437 15.64 8.635 15.9444 8.94125C16.2488 9.2475 16.2481 9.74187 15.9425 10.0462L11.6175 14.3544C11.1612 14.8106 10.5619 15.0387 9.96187 15.0387C9.36188 15.0387 8.76125 14.81 8.30437 14.3531L8.30062 14.3494L4.05375 10.0413C3.75063 9.73375 3.75437 9.23938 4.06187 8.93625C4.36938 8.63313 4.86375 8.63688 5.16687 8.94438L9.41125 13.25C9.55875 13.3969 9.75438 13.4775 9.96187 13.4775C10.1706 13.4775 10.3669 13.3962 10.5144 13.2487L14.8394 8.93875ZM10 0C10.4312 0 10.7812 0.35 10.7812 0.78125V10.3519C10.7812 10.7831 10.4312 11.1331 10 11.1331C9.56875 11.1331 9.21875 10.7831 9.21875 10.3519V0.78125C9.21875 0.35 9.56875 0 10 0Z" fill="currentColor"/></g><defs><clipPath id="clip0_58_3314"><rect width="20" height="20" fill="white"/></clipPath></defs></svg>预算报告</button>
+            </div>
+
+            <div class="kpi-strip">
+                <div class="iwa-frontend-card">
+                    <div class="type-label-l text-sub" style="margin-bottom:8px;">年度碳配额总量</div>
+                    <div class="type-display-l text-white">150,000 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                    <div class="type-caption-m text-sub" style="margin-top:6px;">政府核发基准值</div>
+                </div>
+                <div class="iwa-frontend-card">
+    
+                    <div class="type-label-l text-sub" style="margin-bottom:8px;">累计已消耗</div>
+                    <div class="type-display-l text-white">112,450 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                    <div class="progress-container">
+                        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:74.9%;background:var(--color-accentPrimary);"></div></div>
+                        <div class="progress-labels"><span>占比 74.9%</span><span>剩余 25.1%</span></div>
+                    </div>
+                </div>
+                <div class="iwa-frontend-card">
+                    <div class="type-label-l text-sub" style="margin-bottom:8px;">当前可用余额</div>
+                    <div class="type-display-l text-white">37,550 <span class="type-caption-m text-sub">tCO₂e</span></div>
+                    <div class="type-caption-m text-sub" style="margin-top:6px;">折合碳资产约估 <span style="color:var(--color-accentPrimary);"> 2,628,500</span></div>
+                </div>
+            </div>
+
+            <div class="grid-2col">
+                <div class="iwa-frontend-card" style="display:flex;flex-direction:column;">
+                    <div class="card-header">
+                        <div class="card-title">月度预算执行趋势 & AI 预测</div>
+                    </div>
+                    <div id="budgetTrendChart" style="min-height:240px; flex:1;"></div>
+                </div>
+                <div class="iwa-frontend-card">
+                    <div class="card-header">
+                        <div class="card-title">厂区 / 车间预算消耗榜</div>
+                    </div>
+                    <div>
+                        <table class="iwa-table">
+                            <thead><tr><th>用能单位</th><th>进度</th><th>用量 (tCO₂e)</th><th style="text-align: left;">状态</th></tr></thead>
+                            <tbody>
+                                <tr><td>注塑一车间</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar-bg" style="width:350px;"><div class="progress-bar-fill" style="width:92%;background:var(--color-statusHigh);"></div></div><span class="type-caption-m">92%</span></div></td><td>27,600</td><td style="text-align: left;"><span class="sbadge sbadge-red">严重超支</span></td></tr>
+                                <tr><td>烤漆车间</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar-bg" style="width:350px;"><div class="progress-bar-fill" style="width:85%;background:var(--color-statusWarn);"></div></div><span class="type-caption-m">85%</span></div></td><td>25,500</td><td style="text-align: left;"><span class="sbadge sbadge-orange">警戒区间</span></td></tr>
+                                <tr><td>冲压二车间</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar-bg" style="width:350px;"><div class="progress-bar-fill" style="width:68%;background:var(--color-statusNormal);"></div></div><span class="type-caption-m">68%</span></div></td><td>20,400</td><td style="text-align: left;"><span class="sbadge sbadge-green">控制良好</span></td></tr>
+                                <tr><td>组装流水线</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar-bg" style="width:350px;"><div class="progress-bar-fill" style="width:65%;background:var(--color-statusNormal);"></div></div><span class="type-caption-m">65%</span></div></td><td>19,500</td><td style="text-align: left;"><span class="sbadge sbadge-green">控制良好</span></td></tr>
+                                <tr><td>仓储物流中心</td><td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar-bg" style="width:350px;"><div class="progress-bar-fill" style="width:45%;background:var(--color-statusNormal);"></div></div><span class="type-caption-m">45%</span></div></td><td>13,500</td><td style="text-align: left;"><span class="sbadge sbadge-green">节余优异</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // ==========================================
+    // 1. Sidebar / Submenu 交互逻辑（沿用第 6 页结构）
+    // ==========================================
+    const sidebar = document.getElementById('mainSidebar');
+    const mainPinBtn = document.getElementById('sidebarPinBtn');
+    const panels = document.querySelectorAll('.submenu-panel');
+    const menuItems = document.querySelectorAll('.menu-item[data-target]');
+
+    let isMainSidebarPinned = false;
+    let globalHideTimeout = null;
+
+    mainPinBtn.addEventListener('click', () => {
+        isMainSidebarPinned = !isMainSidebarPinned;
+        if (isMainSidebarPinned) {
+            sidebar.classList.remove('mini');
+            mainPinBtn.classList.add('active');
+        } else {
+            sidebar.classList.add('mini');
+            mainPinBtn.classList.remove('active');
+            panels.forEach(p => p.classList.remove('open'));
+        }
+    });
+
+    sidebar.addEventListener('mouseenter', () => {
+        clearTimeout(globalHideTimeout);
+        if (!isMainSidebarPinned) sidebar.classList.remove('mini');
+    });
+
+    sidebar.addEventListener('mouseleave', () => {
+        clearTimeout(globalHideTimeout);
+        globalHideTimeout = setTimeout(() => {
+            const hasPinnedPanel = Array.from(panels).some(p => p.dataset.pinned === 'true');
+            if (!isMainSidebarPinned) {
+                if (!hasPinnedPanel) {
+                    sidebar.classList.add('mini');
+                    panels.forEach(p => p.classList.remove('open'));
+                } else {
+                    sidebar.classList.remove('mini');
+                    panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+                }
+            } else {
+                panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+            }
+        }, 1000);
+    });
+
+    menuItems.forEach(item => {
+        item.addEventListener('mouseenter', () => {
+            const targetId = item.dataset.target;
+            if (targetId === 'dashboard') return;
+            panels.forEach(p => {
+                if (p.id === targetId) p.classList.add('open');
+                else if (p.dataset.pinned !== 'true') p.classList.remove('open');
+            });
+        });
+    });
+
+    panels.forEach(panel => {
+        const pinBtn = panel.querySelector('.pin-btn');
+        pinBtn.addEventListener('click', () => {
+            const isPinned = panel.dataset.pinned === 'true';
+            panel.dataset.pinned = !isPinned;
+            pinBtn.classList.toggle('active', !isPinned);
+        });
+    });
+
+    // ==========================================
+    // 2. 全屏机制
+    // ==========================================
+    const fullscreenBtn = document.getElementById('btn-fullscreen');
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => {
+                document.body.classList.add('is-fullscreen');
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    });
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) document.body.classList.remove('is-fullscreen');
+    });
+
+    // ==========================================
+    // 3. 即时时钟
+    // ==========================================
+    function updateClock() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const H = String(now.getHours()).padStart(2, '0');
+        const M = String(now.getMinutes()).padStart(2, '0');
+        const S = String(now.getSeconds()).padStart(2, '0');
+        const el = document.getElementById('realtime-clock');
+        if (el) el.textContent = `${y}/${m}/${d} ${H}:${M}:${S}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ==========================================
+    // 4. IWA 色彩常数（对齐 Design Token）
+    // ==========================================
+    const COLOR = {
+        accent:    '#F8B62D',
+        indicator: '#00B0FF',
+        high:      '#FF2D55',
+        warn:      '#F1DE75',
+        normal:    '#5CC736',
+        textMain:  '#ffffff',
+        textSub:   'rgba(255,255,255,0.70)',
+        textMuted: 'rgba(255,255,255,0.50)',
+        panelBg:   '#2C333C',
+        bgBase:    '#212831'
+    };
+
+    // ==========================================
+    // 5. 月度预算执行趋势与 AI 预测
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const chartDom = document.getElementById('budgetTrendChart');
+        if (!chartDom) return;
+
+        const myChart = echarts.init(chartDom);
+        const option = {
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: 'rgba(33,40,49,0.95)',
+                borderColor: 'rgba(255,255,255,0.50)',
+                borderWidth: 0.5,
+                padding: [10, 14],
+                textStyle: { color: '#fff', fontSize: 12, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui' }
+            },
+            legend: {
+                data: ['预算红线', '实际消耗'],
+                icon: 'circle',
+                textStyle: { color: 'rgba(255,255,255,0.70)', fontSize: 12 },
+                left: 'center',
+                top: 20,
+                itemWidth: 8,
+                itemHeight: 8
+            },
+            grid: { left: '3%', right: '4%', bottom: '3%', top: 70, containLabel: true },
+            xAxis: {
+                type: 'category',
+                boundaryGap: true,
+                data: ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+                axisLabel: { color: COLOR.textMuted, fontSize: 11 },
+                axisLine: { lineStyle: { color: 'rgba(255,255,255,0.10)' } },
+                axisTick: { show: false }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'tCO₂e',
+                nameTextStyle: { color: COLOR.textMuted, fontSize: 11, padding: [0, 20, 0, 0] },
+                axisLabel: { color: COLOR.textMuted, fontSize: 11 },
+                splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+            },
+            series: [
+                {
+                    name: '预算红线',
+                    type: 'line',
+                    data: [12500, 12500, 12500, 12500, 12500, 12500, 12500, 12500, 12500, 12500, 12500, 12500],
+                    itemStyle: { color: '#F84378' },
+                    lineStyle: { width: 2, color: '#F84378' },
+                    symbol: 'none',
+                    emphasis: { focus: 'self' },
+                    blur: { lineStyle: { opacity: 0.2 } }
+                },
+                {
+                    name: '实际消耗',
+                    type: 'bar',
+                    barWidth: '40%',
+                    data: [11000, 9500, 13000, 12800, 14000, 13500, 15000, 14200, 9450, null, null, null],
+                    itemStyle: { color: '#00B0FF', borderRadius: [2,2,0,0] },
+                    emphasis: { focus: 'self' },
+                    blur: { itemStyle: { opacity: 0.35 } }
+                }
+            ]
+        };
+        myChart.setOption(option);
+        window.addEventListener('resize', () => myChart.resize());
+    });
+</script>
+</body>
+</html>
+mStyle: { color: '#22c55e', borderRadius: [2,2,0,0] }
+                    },
+                    {
+                        name: 'AI 預測走勢', 
+                        type: 'line', 
+                        smooth: true,
+                        // 為了讓曲線連貫，從9月的資料點開始繪製
+                        data: [null, null, null, null, null, null, null, null, 9450, 14800, 15200, 16000], 
+                        itemStyle: { color: '#ef4444' }, 
+                        lineStyle: { width: 2, type: 'dashed' },
+                        symbol: 'circle',
+                        symbolSize: 6
+                    }
+                ]
+            };
+            myChart.setOption(option);
+
+            // 隨視窗縮放
+            window.addEventListener('resize', () => { 
+                myChart.resize(); 
+            });
+        }
+    });
+</script>
+</body>
+</html>

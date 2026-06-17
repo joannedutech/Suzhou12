@@ -1,0 +1,2576 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IWA 數位能碳管理 - 能效平衡與負荷優化</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        /* =========================================
+           1. 核心設計變數 (Design Tokens)
+        ========================================= */
+        :root {
+            /* 背景色（對齊 IWA Figma Web Dark） */
+            --color-bgBase:        #212831;
+            --color-bgPanel:       #2C333C;
+            --color-bg-chart-info: #313234;
+            --color-bg-alarm:      #2C3744;
+            --color-bg-menu-lv1:   #283A51;
+            --color-bg-menu-lv2:   #1D2C40;
+            --color-bg-menu-lv3:   #0D1F36;
+            --color-bgHover: rgba(255, 255, 255, 0.05);
+
+            /* 品牌色 */
+            --color-accentPrimary: #F8B62D;
+            --color-brand-blue:    #2A4464;
+            --color-indicator:     #00B0FF;
+
+            /* 文字色 */
+            --color-textMain:  #ffffff;
+            --color-textSub:   rgba(255,255,255,0.70);
+            --color-textMuted: rgba(255,255,255,0.50);
+            --color-divider:   rgba(255, 255, 255, 0.08);
+
+            /* 狀態色（對齊 IWA function.info） */
+            --color-statusHigh:   #FF2D55;
+            --color-statusWarn:   #F1DE75;
+            --color-statusNormal: #5CC736;
+
+            /* 車間色系（保留 accent 主色給關鍵互動，車間用輔助色） */
+            --color-workshop1: #60a5fa;   /* 藍 */
+            --color-workshop2: #a78bfa;   /* 紫 */
+            --color-workshop3: #34d399;   /* 綠 */
+            --color-workshop4: #94a3b6;   /* 預備色 - 石板灰 */
+
+            font-family: "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--color-bgBase);
+            color: var(--color-textSub);
+            font-size: 14px;
+            overflow: hidden;
+        }
+
+        .text-xs { font-size: 12px; }
+        .text-sm { font-size: 14px; }
+        .text-base { font-size: 16px; }
+        .text-lg { font-size: 18px; }
+        .text-white { color: var(--color-textMain); }
+        .text-muted { color: var(--color-textMuted); }
+
+        /* =========================================
+           2. 版面結構 (沿用 template.html)
+        ========================================= */
+        .layout-wrapper { display: flex; height: 100vh; overflow: hidden; }
+
+        .iwa-frontend-sidebar {
+            width: 220px; background: var(--color-bg-menu-lv1);
+            box-shadow: 0px 4px 4px rgba(0,0,0,0.25);
+            transition: width 300ms cubic-bezier(0.4,0,0.2,1);
+            position: relative; z-index: 100;
+            display: flex; flex-direction: column; gap: 20px; padding-top: 17px;
+        }
+        .brand-area { padding: 0 10px; display: flex; align-items: center; gap: 10px; }
+        .brand-logo-text { display: flex; align-items: center; gap: 10px; flex: 1; }
+        .brand-logo { width: 26px; height: 26px; border-radius: 5.91px; border: 0.59px solid white; background: white; flex-shrink: 0; }
+        .pin-btn {
+            background: rgba(15,26,42,0.80); border: none; cursor: pointer;
+            width: 26px; height: 26px; border-radius: 9999px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            transition: background 150ms, color 150ms;
+        }
+        .pin-btn.active { color: #00B0FF; }
+        .pin-btn:not(.active) { color: #a9a9a9; }
+        .pin-btn:hover { background: rgba(15,26,42,1); color: #9adfff; }
+        .pin-btn.active .pin-svg--pin   { display: block; }
+        .pin-btn.active .pin-svg--unpin { display: none; }
+        .pin-btn:not(.active) .pin-svg--pin   { display: none; }
+        .pin-btn:not(.active) .pin-svg--unpin { display: block; }
+
+
+        .menu-list { list-style: none; flex: 1; overflow-y: auto; padding-right: 5px; }
+        .menu-item {
+            height: 42px; padding: 10px 10px 10px 25px;
+            display: flex; align-items: center; cursor: pointer;
+            position: relative; color: white;
+            font-size: 16px; font-weight: 400; border-radius: 5px;
+            transition: background 150ms;
+        }
+        .menu-item .icon-wrap { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 5px; }
+        .menu-item .text { flex: 1; white-space: nowrap; }
+        .menu-item::before {
+            content: ''; position: absolute; left: 0; top: 5px; bottom: 5px;
+            width: 3px; background: var(--color-accentPrimary);
+            border-radius: 0 4px 3px 0; opacity: 0; transition: opacity 150ms;
+        }
+        .menu-item.active { color: var(--color-accentPrimary); }
+        .menu-item.active::before { opacity: 1; }
+
+        .iwa-frontend-sidebar.mini { width: 64px; padding-top: 17px; gap: 16px; }
+        .iwa-frontend-sidebar.mini .brand-text,
+        .iwa-frontend-sidebar.mini .menu-item .text,
+        .iwa-frontend-sidebar.mini .menu-item .arrow { display: none !important; }
+        .iwa-frontend-sidebar.mini .menu-item { justify-content: center; padding: 0; }
+        .iwa-frontend-sidebar.mini .menu-item .icon-wrap { margin-right: 0; }
+        .iwa-frontend-sidebar.mini .brand-area { justify-content: center; padding: 0; }
+        .iwa-frontend-sidebar.mini .brand-logo-text { flex: 0 0 auto; }
+        .iwa-frontend-sidebar.mini .pin-btn { display: none; }
+
+        .submenu-panel {
+            position: absolute; left: 100%; top: 0;
+            width: 220px; height: 100vh;
+            background: var(--color-bg-menu-lv2);
+            transform: translateX(-20px); opacity: 0; pointer-events: none;
+            transition: transform 250ms cubic-bezier(0.4,0,0.2,1), opacity 250ms;
+            z-index: 99; display: flex; flex-direction: column; padding-top: 17px; gap: 8px;
+        }
+        .submenu-panel.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+        .submenu-header { height: 26px; padding: 0 10px; display: flex; align-items: center; justify-content: flex-end; }
+        .submenu-panel .menu-item { padding-left: 25px; }
+        .submenu-panel .menu-item:hover { background: rgba(0,176,255,0.10); }
+        .submenu-panel .menu-item.active { color: var(--color-accentPrimary); background: rgba(0,176,255,0.20); }
+        .submenu-panel .menu-item.active::before { opacity: 1; }
+
+        .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .iwa-frontend-header {
+            height: 60px; background-color: var(--color-bgBase);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            transition: transform 300ms ease-in-out, opacity 300ms ease-in-out, height 300ms ease-in-out;
+        }
+        .breadcrumb { color: var(--color-textSub); font-size: 14px; font-weight: 400; }
+        .breadcrumb .current { color: var(--color-textMain); font-weight: 600; }
+        .header-controls { display: flex; align-items: center; gap: 16px; }
+        .header-icon { color: var(--color-textSub); cursor: pointer; font-size: 16px; transition: color 150ms; }
+        .header-icon:hover { color: #ffffff; }
+        .header-divider { height: 24px; border-left: 1px solid rgba(255,255,255,0.15); margin: 0 8px; }
+        .brand-time { display: flex; align-items: center; gap: 12px; }
+        .time-text { display: flex; flex-direction: column; align-items: flex-end; }
+
+        .content-wrapper {
+            flex: 1; padding: 0 24px 24px 24px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+
+        .inner-scroll-container::-webkit-scrollbar { width: 6px; height: 6px; }
+        .inner-scroll-container::-webkit-scrollbar-track { background: transparent; }
+        .inner-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08); border-radius: 3px;
+        }
+        .inner-scroll-container::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+        body.is-fullscreen .iwa-frontend-sidebar { transform: translateX(-100%); width: 0; opacity: 0; pointer-events: none; }
+        body.is-fullscreen .iwa-frontend-header { transform: translateY(-100%); height: 0; opacity: 0; pointer-events: none; }
+
+        /* =========================================
+           3. Dashboard 專屬樣式
+        ========================================= */
+
+        /* --- 頁面標題區 --- */
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 0 4px 0;
+        }
+        .page-title-row {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .module-num {
+            width: 28px; height: 28px; border-radius: 8px;
+            background: transparent; border: 1px solid rgba(241,222,117,0.50);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--color-statusWarn); font-size: 16px; font-weight: 600; flex-shrink: 0;
+        }
+        .page-title-row h1 {
+            color: var(--color-textMain); font-size: 28px; font-weight: 500;
+            letter-spacing: 0.06em;
+        }
+        .page-subtitle {
+            color: var(--color-textMuted); font-size: 12px; font-weight: 400;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .live-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background-color: var(--color-statusNormal);
+            box-shadow: 0 0 8px var(--color-statusNormal);
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+        .live-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 9999px;
+            background: rgba(92,199,54,0.12);
+            color: var(--color-statusNormal);
+            font-size: 12px; font-weight: 600;
+            border: 1px solid rgba(92,199,54,0.25);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        /* --- 時段切換 --- */
+        .time-switcher {
+            display: flex; background: var(--color-bgPanel);
+            border-radius: 8px; padding: 4px; gap: 2px;
+            border: 1px solid var(--color-divider);
+        }
+        .time-tab {
+            padding: 6px 16px; border-radius: 6px;
+            color: var(--color-textSub); cursor: pointer;
+            font-size: 13px; font-weight: 400; transition: all 150ms ease;
+            border: none; background: transparent;
+        }
+        .time-tab:hover { color: var(--color-textMain); }
+        .time-tab.active {
+            background: var(--color-accentPrimary); color: var(--color-bgBase); font-weight: 600;
+        }
+
+        /* --- KPI 帶 --- */
+        .kpi-strip {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+        }
+        .kpi-card {
+            background: var(--color-bgPanel); border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0px 0px 24px rgba(0,0,0,0.50);
+            position: relative; overflow: hidden;
+            transition: transform 150ms ease, border-color 150ms ease;
+        }
+        .kpi-card:hover { border-color: rgba(248,182,45,0.30); }
+        .kpi-card::before {
+            content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+            width: 3px; background: var(--accent-bar, var(--color-accentPrimary));
+        }
+        .kpi-card.alert::before { background: var(--color-statusHigh); }
+        .kpi-card.warn::before { background: var(--color-statusWarn); }
+        .kpi-card.normal::before { background: var(--color-statusNormal); }
+
+        .kpi-label {
+            color: var(--color-textMuted); font-size: 14px; font-weight: 400; margin-bottom: 10px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .kpi-label .info-icon {
+            color: var(--color-textMuted); font-size: 11px; cursor: help;
+        }
+        .kpi-value {
+            color: var(--color-textMain); font-size: 30px; font-weight: 600;
+            line-height: 1.1; display: flex; align-items: baseline; gap: 4px;
+        }
+        .kpi-unit { font-size: 14px; font-weight: 400; color: var(--color-textMuted); }
+        .kpi-sub {
+            margin-top: 10px; font-size: 12px; font-weight: 400; color: var(--color-textMuted);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .kpi-trend {
+            display: inline-flex; align-items: center; gap: 3px;
+            padding: 2px 6px; border-radius: 4px; font-weight: 600;
+        }
+        .kpi-trend.up { color: var(--color-statusHigh); background: rgba(255,45,85,0.10); }
+        .kpi-trend.down { color: var(--color-statusNormal); background: rgba(92,199,54,0.10); }
+
+        /* --- Module Section --- */
+        .module-section { display: flex; flex-direction: column; gap: 16px; padding-top: 10px; padding-bottom: 10px; }
+        .module-section-header {
+            display: flex; align-items: center; gap: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .module-title {
+            color: var(--color-textMain); font-size: 16px; font-weight: 600;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .module-title::before {
+            content: ''; width: 4px; height: 16px; flex-shrink: 0;
+            background: var(--color-accentPrimary); border-radius: 2px;
+        }
+        .module-desc  { color: var(--color-textMuted); font-size: 14px; font-weight: 400; }
+
+        /* --- Panel / Card --- */
+        .panel {
+            background: var(--color-bgPanel); border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0px 0px 24px rgba(0,0,0,0.50);
+        }
+        .panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 14px;
+        }
+        .panel-title {
+            color: var(--color-textMain); font-size: 16px; font-weight: 400;
+        }
+        .panel-title .icon { color: var(--color-accentPrimary); margin-right: 6px; }
+        .panel-actions { display: flex; gap: 8px; }
+        .panel-action-btn {
+            background: transparent; border: 1px solid var(--color-divider);
+            color: var(--color-textSub); padding: 4px 10px; border-radius: 6px;
+            cursor: pointer; font-size: 12px; font-weight: 400; transition: all 150ms;
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+        .panel-action-btn:hover { border-color: var(--color-accentPrimary); color: var(--color-accentPrimary); }
+
+        /* --- 兩欄網格 --- */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-2-uneven { display: grid; grid-template-columns: 1fr 1.3fr; gap: 16px; }
+
+        /* --- 圖表容器 --- */
+        .chart-container { position: relative; width: 100%; height: 240px; }
+        .chart-container.tall { height: 280px; }
+
+        /* --- 車間圖例 --- */
+        .workshop-legend {
+            display: flex; gap: 12px; flex-wrap: wrap;
+            justify-content: center;
+        }
+        .legend-item {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 12px; font-weight: 400; color: var(--color-textSub);
+        }
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .legend-value { margin-left: auto; color: var(--color-textMain); font-weight: 600; }
+
+        /* --- 圖表 + 圖例並排 --- */
+        .chart-with-legend {
+            display: flex; align-items: center; justify-content: center; gap: 20px;
+        }
+        .chart-with-legend .chart-container { flex: 0 0 300px; height: 300px; }
+        .chart-with-legend .workshop-legend {
+            flex-direction: column; gap: 12px;
+            border-bottom: none; padding-bottom: 0; justify-content: flex-start;
+        }
+
+        /* --- 熱力圖 --- */
+        .heatmap-container { padding: 10px 0; }
+        .heatmap-row {
+            display: grid; grid-template-columns: 80px repeat(24, 1fr); gap: 3px;
+            margin-bottom: 3px; align-items: center;
+        }
+        .heatmap-row.header {
+            color: var(--color-textMuted); font-size: 11px; font-weight: 400;
+            margin-bottom: 6px; margin-top: 4px;
+        }
+        .heatmap-label {
+            font-size: 12px; font-weight: 400; color: var(--color-textSub); padding-right: 8px;
+        }
+        .heatmap-cell {
+            aspect-ratio: 1; max-height: 40px; border-radius: 2px; cursor: pointer;
+            transition: transform 100ms ease, outline 100ms ease;
+            position: relative;
+        }
+        /* 週視圖：固定高度的寬扁矩形，避免 7 欄時 aspect-ratio 撐成大方塊 */
+        .heatmap-container.view-week .heatmap-cell {
+            aspect-ratio: auto; height: 32px; max-height: none;
+        }
+        .heatmap-cell { transition: opacity 120ms ease, transform 100ms ease, outline 100ms ease; }
+        .heatmap-cell:hover {
+            transform: scale(1.25); z-index: 10;
+            outline: 1px solid var(--color-textMain);
+        }
+        .heatmap-container.is-hovering .heatmap-cell { opacity: 0.3; }
+        .heatmap-container.is-hovering .heatmap-cell:hover { opacity: 1; }
+        .heatmap-cell.low { background: #5CC736; }
+        .heatmap-cell.mid { background: #F1DE75; }
+        .heatmap-cell.high { background: #FF2D55; }
+        .heatmap-cell.idle { background: rgba(255, 255, 255, 0.05); }
+
+        /* --- 熱力圖 Tooltip --- */
+        #heatmap-tooltip {
+            position: fixed; z-index: 9999; pointer-events: none;
+            background: rgba(33,40,49,0.95); border: 0.5px solid rgba(255,255,255,0.50);
+            border-radius: 4px; padding: 10px 14px;
+            font-size: 12px; font-weight: 400; color: #fff;
+            font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+            box-shadow: 1px 2px 10px rgba(0,0,0,0.20);
+            opacity: 0; transition: opacity 100ms ease;
+            white-space: nowrap;
+        }
+        #heatmap-tooltip.visible { opacity: 1; }
+
+        .heatmap-hour-label {
+            text-align: center; font-size: 11px; font-weight: 400; color: var(--color-textMuted);
+        }
+        .panel.panel-heatmap { display: flex; flex-direction: column; }
+        .panel.panel-heatmap .heatmap-container {
+            flex: 1; display: flex; flex-direction: column; justify-content: center;
+        }
+        .heatmap-legend {
+            display: flex; gap: 16px; justify-content: center;
+            padding: 16px 0 12px 0;
+            font-size: 12px; font-weight: 400;
+        }
+        .heatmap-legend-item { display: flex; align-items: center; gap: 6px; color: var(--color-textSub); }
+        .heatmap-legend-swatch { width: 8px; height: 8px; border-radius: 50%; }
+
+        /* --- 峰谷對比曲線 --- */
+        .peak-valley-insight {
+            margin-top: 12px; padding: 12px 14px;
+            background: rgba(248,182,45,0.08);
+            border-left: 3px solid var(--color-accentPrimary);
+            border-radius: 6px;
+            display: flex; align-items: flex-start; gap: 10px;
+        }
+        .peak-valley-insight .insight-icon {
+            color: var(--color-accentPrimary); font-size: 16px; margin-top: 2px;
+        }
+        .peak-valley-insight .insight-text {
+            color: var(--color-textSub); font-size: 13px; font-weight: 400; line-height: 1.6;
+        }
+        .peak-valley-insight .insight-text strong {
+            color: var(--color-accentPrimary); font-weight: 600;
+        }
+
+        /* --- 能效系數對比 --- */
+        .efficiency-table {
+            width: 100%; border-collapse: collapse; font-size: 14px; font-weight: 400;
+        }
+        .efficiency-table th {
+            text-align: left; padding: 10px 8px;
+            color: var(--color-textMuted); font-weight: 500;
+            border-bottom: 1px solid var(--color-divider);
+            font-size: 12px;
+        }
+        .efficiency-table td {
+            padding: 12px 8px; border-bottom: 1px solid var(--color-divider);
+            color: var(--color-textSub); font-size: 14px; font-weight: 400;
+        }
+        .efficiency-table tr:last-child td { border-bottom: none; }
+        .efficiency-table .workshop-name {
+            display: flex; align-items: center; gap: 8px; color: var(--color-textMain);
+            font-size: 14px; font-weight: 400;
+        }
+        .efficiency-table .workshop-chip {
+            width: 4px; height: 16px; border-radius: 2px;
+        }
+        .efficiency-table .text-muted {
+            font-size: 11px; font-weight: 400;
+        }
+        .eff-bar-wrapper {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+        }
+        .eff-bar-track {
+            flex: 1; height: 6px; background: rgba(255,255,255,0.05);
+            border-radius: 3px; overflow: hidden; position: relative;
+        }
+        .eff-bar-fill { height: 100%; border-radius: 3px; }
+        .eff-bar-fill.good { background: var(--color-statusNormal); }
+        .eff-bar-fill.warn { background: var(--color-statusWarn); }
+        .eff-bar-fill.bad { background: var(--color-statusHigh); }
+        .eff-value { min-width: 42px; text-align: right; color: var(--color-textMain); font-size: 14px; font-weight: 400; }
+        .eff-tag {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 8px;
+            font-size: 12px; font-weight: 500; border: 1px solid;
+        }
+        .eff-tag.good { background: rgba(92,199,54,0.12);   color: var(--color-statusNormal); border-color: rgba(92,199,54,0.30); }
+        .eff-tag.warn { background: rgba(241,222,117,0.12); color: var(--color-statusWarn);   border-color: rgba(241,222,117,0.30); }
+        .eff-tag.bad  { background: rgba(255,45,85,0.12);   color: var(--color-statusHigh);   border-color: rgba(255,45,85,0.30); }
+
+        /* --- BU 全廠統計 chips --- */
+        .bu-summary-chips {
+            display: flex; gap: 12px; margin-bottom: 16px;
+        }
+        .bu-chip {
+            display: flex; flex-direction: column; gap: 4px;
+            padding: 10px 16px; border-radius: 8px;
+            background: var(--color-bgBase); border: 1px solid var(--color-divider);
+            flex: 1;
+        }
+        .bu-chip-label {
+            font-size: 14px; font-weight: 400; color: var(--color-textMuted);
+        }
+        .bu-chip-value {
+            font-size: 30px; font-weight: 600; color: var(--color-textMain); line-height: 1.1;
+        }
+        .bu-chip-value .unit {
+            font-size: 12px; font-weight: 400; color: var(--color-textSub); margin-left: 4px;
+        }
+        .bu-chip.accent { border-color: transparent; }
+        .bu-chip.accent .bu-chip-value { color: var(--color-accentPrimary); }
+
+        /* --- BU 年度 EUI 摘要卡 (3 BU x 3 metrics) --- */
+        .bu-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 4px;
+        }
+        .bu-summary-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--color-divider);
+            border-radius: 8px;
+            padding: 12px 14px;
+            cursor: pointer;
+            transition: background 150ms ease, transform 150ms ease, border-color 150ms ease;
+        }
+        .bu-summary-card:hover,
+        .bu-summary-card:focus-visible {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(248,182,45,0.4);
+            outline: none;
+        }
+        .bu-summary-card:hover .bu-card-arrow { transform: translateX(3px); color: var(--color-accentPrimary); }
+        .bu-card-arrow {
+            margin-left: auto; font-size: 11px;
+            color: var(--color-textSub); opacity: 0.6;
+            transition: transform 150ms ease, color 150ms ease;
+        }
+        .bu-summary-card[data-bu="MP"] { border-left: 3px solid var(--color-workshop1); }
+        .bu-summary-card[data-bu="MAG"] { border-left: 3px solid var(--color-workshop2); }
+        .bu-summary-card[data-bu="LED"] { border-left: 3px solid var(--color-workshop3); }
+        .bu-summary-head {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 10px;
+        }
+        .bu-summary-head .workshop-chip {
+            width: 4px; height: 16px; border-radius: 2px;
+        }
+        .bu-summary-name {
+            color: var(--color-textMain); font-weight: 600; font-size: 14px;
+        }
+        .bu-summary-sector {
+            color: var(--color-textSub); font-size: 11px;
+            padding: 2px 6px; background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+        }
+        .bu-summary-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+        .bu-metric-label {
+            color: var(--color-textSub); font-size: 11px;
+            margin-bottom: 4px;
+        }
+        .bu-metric-value {
+            color: var(--color-textMain); font-weight: 600;
+            font-size: 16px; line-height: 1.2;
+        }
+        .bu-metric-unit {
+            color: var(--color-textSub); font-size: 10px; font-weight: 400;
+        }
+        .bu-metric-value.gap-pos { color: var(--color-statusHigh); }
+        .bu-metric-value.gap-neg { color: var(--color-statusNormal); }
+        .bu-metric-value.gap-flat { color: var(--color-statusWarn); }
+
+        /* --- BU 年度趨勢圖 footnote --- */
+        .bu-trend-footnote {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px dashed rgba(255,255,255,0.06);
+        }
+        .bu-trend-legend {
+            display: flex; gap: 18px; flex-wrap: wrap;
+            font-size: 12px; color: var(--color-textSub);
+        }
+        .bu-trend-legend-item {
+            display: flex; align-items: center; gap: 6px;
+        }
+        .bu-trend-swatch {
+            width: 22px; height: 10px; border-radius: 2px;
+        }
+        .bu-trend-swatch.dashed-swatch {
+            background: transparent;
+            border-top: 2px dashed var(--color-accentPrimary);
+            border-radius: 0;
+            height: 2px;
+        }
+        .bu-trend-hint {
+            margin-left: auto;
+            color: var(--color-textSub); opacity: 0.85;
+        }
+        .bu-trend-hint i { margin-right: 4px; color: var(--color-accentPrimary); }
+
+        /* --- 產業參考 按鈕 --- */
+        .ref-btn {
+            margin-left: 10px;
+            padding: 3px 10px;
+            background: rgba(248,182,45,0.08);
+            border: 1px solid rgba(248,182,45,0.3);
+            border-radius: 12px;
+            color: var(--color-accentPrimary);
+            font-size: 11px; font-weight: 500;
+            cursor: pointer;
+            transition: background 150ms ease;
+        }
+        .ref-btn:hover { background: rgba(248,182,45,0.18); }
+        .ref-btn i { margin-right: 4px; }
+
+        /* --- BU 月度明細 Modal --- */
+        .bu-modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(7, 16, 27, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        .bu-modal-overlay[hidden] { display: none; }
+        .bu-modal {
+            background: var(--color-bgPanel);
+            border: 1px solid var(--color-divider);
+            border-radius: 12px;
+            width: 100%; max-width: 720px;
+            max-height: 85vh; overflow: hidden;
+            display: flex; flex-direction: column;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+        }
+        .bu-modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--color-divider);
+        }
+        .bu-modal-title {
+            display: flex; align-items: center; gap: 10px;
+            color: var(--color-textMain); font-size: 16px; font-weight: 600;
+        }
+        .bu-modal-title .workshop-chip {
+            width: 4px; height: 18px; border-radius: 2px;
+        }
+        .bu-modal-close {
+            background: none; border: none;
+            color: var(--color-textSub); cursor: pointer;
+            font-size: 18px; padding: 4px 10px;
+            border-radius: 4px; line-height: 1;
+            transition: background 150ms ease, color 150ms ease;
+        }
+        .bu-modal-close:hover {
+            background: rgba(255,255,255,0.06);
+            color: var(--color-textMain);
+        }
+        .bu-modal-meta {
+            padding: 12px 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            border-bottom: 1px solid var(--color-divider);
+            background: rgba(255,255,255,0.02);
+        }
+        .bu-modal-meta-item .lbl {
+            color: var(--color-textSub); font-size: 11px;
+            margin-bottom: 3px;
+        }
+        .bu-modal-meta-item .val {
+            color: var(--color-textMain); font-weight: 600; font-size: 14px;
+        }
+        .bu-modal-table-wrap {
+            overflow-y: auto;
+            padding: 4px 20px 16px;
+        }
+        .bu-modal-table th, .bu-modal-table td {
+            font-size: 12px;
+        }
+        .bu-modal-table .gap-cell.pos { color: var(--color-statusHigh); }
+        .bu-modal-table .gap-cell.neg { color: var(--color-statusNormal); }
+        .bu-modal-table tr.summer-row td { background: rgba(96,165,250,0.06); }
+        .bu-modal-table tr.total-row td {
+            background: rgba(248,182,45,0.05);
+            color: var(--color-textMain); font-weight: 600;
+            border-top: 1px solid var(--color-divider);
+        }
+
+        /* --- 產業參考 Popover --- */
+        .industry-ref-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(7, 16, 27, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+        }
+        .industry-ref-backdrop[hidden] { display: none; }
+        .industry-ref-popover {
+            position: fixed;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: var(--color-bgPanel);
+            border: 1px solid var(--color-divider);
+            border-radius: 12px;
+            width: 92vw; max-width: 620px;
+            max-height: 86vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow: hidden;
+        }
+        .industry-ref-popover[hidden] { display: none; }
+        .industry-ref-header {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--color-divider);
+            gap: 12px;
+        }
+        .industry-ref-title {
+            color: var(--color-textMain); font-size: 15px; font-weight: 600;
+            margin-bottom: 3px;
+        }
+        .industry-ref-sub {
+            color: var(--color-textSub); font-size: 12px;
+        }
+        .industry-ref-body {
+            overflow-y: auto;
+            padding: 0 20px;
+        }
+        .industry-ref-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin: 8px 0 12px;
+        }
+        .industry-ref-table thead th {
+            text-align: left; padding: 10px 12px;
+            color: var(--color-textSub); font-weight: 500;
+            border-bottom: 1px solid var(--color-divider);
+            font-size: 12px;
+            position: sticky; top: 0;
+            background: var(--color-bgPanel);
+        }
+        .industry-ref-table th.num, .industry-ref-table td.num {
+            text-align: right; font-variant-numeric: tabular-nums;
+        }
+        .industry-ref-table td {
+            padding: 8px 12px;
+            color: var(--color-textSub);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: middle;
+        }
+        .industry-ref-table tbody tr:hover td { background: rgba(255,255,255,0.03); }
+        .industry-ref-table td.cat-cell {
+            color: var(--color-textMain); font-weight: 600;
+            background: rgba(255,255,255,0.025);
+            border-right: 1px solid var(--color-divider);
+        }
+        .industry-ref-table td.num {
+            color: var(--color-textMain); font-weight: 600;
+        }
+        .industry-ref-foot {
+            padding: 10px 20px 14px;
+            font-size: 11px; color: var(--color-textSub); opacity: 0.85;
+            border-top: 1px solid var(--color-divider);
+            background: rgba(255,255,255,0.02);
+        }
+
+        @media (max-width: 720px) {
+            .bu-summary-grid { grid-template-columns: 1fr; }
+            .bu-modal-meta { grid-template-columns: 1fr; }
+        }
+
+        /* --- 優化建議卡片 --- */
+        .suggestion-filter {
+            display: flex; gap: 8px; align-items: center;
+        }
+        .filter-chip {
+            padding: 5px 12px; border-radius: 14px;
+            background: var(--color-bgBase); border: 1px solid var(--color-divider);
+            color: var(--color-textSub); font-size: 12px; font-weight: 400; cursor: pointer;
+            transition: all 150ms ease;
+        }
+        .filter-chip:hover { color: var(--color-textMain); }
+        .filter-chip.active {
+            background: var(--color-accentPrimary); color: var(--color-bgBase);
+            border-color: var(--color-accentPrimary); font-weight: 600;
+        }
+        .filter-chip .count {
+            margin-left: 4px; padding: 0 6px; border-radius: 8px;
+            background: rgba(255,255,255,0.1); font-size: 11px;
+        }
+        .filter-chip.active .count { background: rgba(0,0,0,0.15); }
+
+        .suggestion-list {
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .suggestion-card {
+            background: var(--color-bgPanel); border-radius: 10px;
+            border: 1px solid var(--color-divider);
+            border-left: 4px solid var(--priority-color, var(--color-textMuted));
+            padding: 20px;
+            box-shadow: 0px 0px 24px rgba(0,0,0,0.50);
+            transition: all 150ms ease;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 16px;
+            align-items: center;
+        }
+        .suggestion-card:hover {
+            border-color: rgba(248,182,45,0.30);
+            border-left-color: var(--priority-color, var(--color-textMuted));
+            transform: translateX(2px);
+        }
+        .suggestion-card[data-priority="high"] { --priority-color: var(--color-statusHigh); }
+        .suggestion-card[data-priority="medium"] { --priority-color: var(--color-statusWarn); }
+        .suggestion-card[data-priority="low"] { --priority-color: var(--color-indicator); }
+
+        .priority-badge {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; width: 56px; height: 56px;
+            border-radius: 8px; font-size: 11px; font-weight: 400;
+            gap: 2px;
+        }
+        .priority-badge.high { background: rgba(255,45,85,0.12); color: var(--color-statusHigh); }
+        .priority-badge.medium { background: rgba(241,222,117,0.12); color: var(--color-statusWarn); }
+        .priority-badge.low { background: rgba(0,176,255,0.12); color: var(--color-indicator); }
+        .priority-badge i { font-size: 16px; }
+
+        .suggestion-content { min-width: 0; }
+        .suggestion-meta {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 6px; font-size: 12px; font-weight: 400; color: var(--color-textMuted);
+        }
+        .suggestion-workshop {
+            padding: 2px 8px; border-radius: 4px;
+            background: rgba(255,255,255,0.05); color: var(--color-textSub);
+        }
+        .suggestion-title {
+            color: var(--color-textMain); font-size: 16px; font-weight: 400;
+            margin-bottom: 4px;
+        }
+        .suggestion-desc {
+            color: var(--color-textSub); font-size: 12px; font-weight: 400; line-height: 1.5;
+        }
+        .suggestion-desc strong { color: var(--color-accentPrimary); font-weight: 600; }
+
+        .suggestion-impact {
+            display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+            min-width: 180px;
+        }
+        .impact-value {
+            color: var(--color-statusNormal); font-size: 16px; font-weight: 600;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .impact-label {
+            color: var(--color-textMuted); font-size: 12px; font-weight: 400;
+        }
+        .suggestion-actions { display: flex; gap: 6px; }
+        .btn-primary, .btn-ghost {
+            padding: 6px 12px; border-radius: 6px; font-size: 12px;
+            cursor: pointer; border: 1px solid transparent;
+            transition: all 150ms ease; font-weight: 500;
+        }
+        .btn-primary {
+            background: var(--color-accentPrimary); color: var(--color-bgBase);
+            border-color: var(--color-accentPrimary);
+        }
+        .btn-primary:hover { background: var(--color-accentHover); }
+        .btn-ghost {
+            background: transparent; color: var(--color-textSub);
+            border-color: var(--color-divider);
+        }
+        .btn-ghost:hover { color: var(--color-textMain); border-color: var(--color-textSub); }
+
+        .suggestion-card.hidden { display: none; }
+        .suggestion-card.adopted {
+            opacity: 0.55;
+            border-left-color: var(--color-statusNormal) !important;
+        }
+        .suggestion-card.adopted .suggestion-title::after {
+            content: ' ✓ 已採納'; color: var(--color-statusNormal); font-size: 12px;
+        }
+
+        /* --- 篩選器：下拉 + 切換按鈕 --- */
+        .control-group {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        }
+        .control-label {
+            font-size: 12px; color: var(--color-textMuted);
+        }
+        /* --- Dropdown Type2 --- */
+        .iwa-dd2-wrap { position: relative; display: inline-block; user-select: none; }
+        .iwa-dd2-trigger {
+            display: inline-flex; align-items: center; justify-content: space-between;
+            padding: 4px 10px; gap: 10px; min-width: 100px;
+            background: var(--color-bgBase); border-radius: 25px;
+            outline: 1px solid rgba(255,255,255,1); outline-offset: -1px;
+            opacity: 0.50; cursor: pointer;
+            transition: opacity 150ms, outline-color 150ms;
+        }
+        .iwa-dd2-trigger:hover { opacity: 1; outline-color: var(--color-accentPrimary); }
+        .iwa-dd2-trigger:hover .dd2-text { color: var(--color-accentPrimary); }
+        .iwa-dd2-trigger:hover .dd2-chevron { fill: var(--color-accentPrimary); }
+        .iwa-dd2-wrap.open .iwa-dd2-trigger { opacity: 1; outline-color: var(--color-accentPrimary); border-radius: 10px 10px 0 0; }
+        .iwa-dd2-wrap.open .iwa-dd2-trigger .dd2-chevron { fill: var(--color-accentPrimary); transform: rotate(180deg); }
+        .dd2-text {
+            flex: 1; text-align: center; color: white;
+            font-size: 13px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+            transition: color 150ms;
+        }
+        .dd2-chevron { width: 8px; height: 8px; fill: white; flex-shrink: 0; transition: fill 150ms, transform 200ms ease; }
+        .iwa-dd2-panel {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+            background: var(--color-bgBase);
+            border: 1px solid var(--color-accentPrimary); border-top: none;
+            border-radius: 0 0 8px 8px; overflow: hidden;
+            max-height: 0; opacity: 0;
+            transition: max-height 200ms ease, opacity 150ms ease;
+            pointer-events: none;
+        }
+        .iwa-dd2-wrap.open .iwa-dd2-panel { max-height: 300px; opacity: 1; pointer-events: auto; }
+        .dd2-option {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 5px 8px; column-gap: 8px;
+            color: white; font-size: 13px; font-weight: 400;
+            font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+            cursor: pointer; transition: color 100ms;
+        }
+        .dd2-option:hover { color: var(--color-accentPrimary); }
+        .dd2-option.selected { color: var(--color-accentPrimary); }
+        .dd2-opt-text { flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dd2-tick { display: flex; align-items: center; flex-shrink: 0; width: 8px; height: 8px; opacity: 0; }
+        .dd2-option.selected .dd2-tick { opacity: 1; }
+        .dd2-tick svg { width: 8px; height: 8px; }
+
+        .view-toggle {
+            display: inline-flex; background: var(--color-bgBase);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 9999px; padding: 3px;
+        }
+        .view-toggle button {
+            padding: 3px 14px; border-radius: 9999px;
+            background: transparent; border: none;
+            color: var(--color-textSub); font-size: 12px; font-weight: 400; cursor: pointer;
+            transition: all 150ms ease;
+        }
+        .view-toggle button:hover { color: var(--color-textMain); }
+        .view-toggle button.active {
+            background: var(--color-accentPrimary); color: var(--color-bgBase); font-weight: 600;
+        }
+
+        /* --- 部門佔比附註卡（額定容量 / 即時用量） --- */
+        .capacity-note {
+            display: flex; gap: 24px; margin-top: 0;
+            padding-top: 12px; border-top: 1px solid var(--color-divider);
+        }
+        .capacity-note-item {
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .capacity-note-label {
+            font-size: 14px; font-weight: 400; color: var(--color-textMuted);
+        }
+        .capacity-note-value {
+            font-size: 35px; font-weight: 600; color: var(--color-textMain); line-height: 1.1;
+        }
+        .capacity-note-value .unit {
+            font-size: 14px; color: var(--color-textSub); margin-left: 4px; font-weight: 400;
+        }
+
+        /* --- 峰谷圖表前的即時負荷卡 --- */
+        .pv-snapshot {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 16px; margin-bottom: 14px;
+            background: var(--color-bgBase);
+            border-left: 3px solid var(--color-accentPrimary);
+            border-radius: 6px;
+        }
+        .pv-snapshot-label {
+            font-size: 12px; font-weight: 400; color: var(--color-textMuted);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .pv-snapshot-value {
+            font-size: 24px; font-weight: 500; color: var(--color-textMain);
+            display: flex; align-items: baseline; gap: 4px;
+        }
+        .pv-snapshot-value .unit {
+            font-size: 14px; color: var(--color-textSub); font-weight: 400;
+        }
+        .pv-snapshot-time {
+            margin-left: auto; font-size: 11px; font-weight: 400; color: var(--color-textMuted);
+            display: flex; align-items: center; gap: 4px;
+        }
+        .pv-snapshot-tag {
+            padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 600;
+        }
+        .pv-snapshot-tag.peak     { background: rgba(255,45,85,0.15); color: var(--color-statusHigh); }
+        .pv-snapshot-tag.high     { background: rgba(241,222,117,0.15); color: var(--color-statusWarn); }
+        .pv-snapshot-tag.mid      { background: rgba(248,182,45,0.15); color: var(--color-accentPrimary); }
+        .pv-snapshot-tag.low      { background: rgba(92,199,54,0.15); color: var(--color-statusNormal); }
+        .pv-snapshot-tag.deepLow  { background: rgba(0,176,255,0.15); color: var(--color-indicator); }
+
+        /* --- 峰谷 5 時段圖例 --- */
+        .pv-legend {
+            display: flex; gap: 14px; justify-content: center;
+            padding: 0 0 12px 0;
+            font-size: 12px; font-weight: 400; flex-wrap: wrap;
+        }
+        .pv-legend-item { display: flex; align-items: center; gap: 6px; color: var(--color-textSub); }
+        .pv-legend-swatch { width: 8px; height: 8px; border-radius: 50%; }
+
+        /* 響應式微調 */
+        @media (max-width: 1400px) {
+            .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="layout-wrapper">
+
+    <!-- 側邊欄 -->
+    <nav class="iwa-frontend-sidebar mini" id="mainSidebar">
+        <div class="brand-area">
+            <div class="brand-logo-text">
+                <div class="brand-logo">SU</div>
+                <span class="type-body-m text-white brand-text">群電蘇州廠</span>
+            </div>
+            <button class="pin-btn active" id="sidebarPinBtn">
+                <svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg>
+            </button>
+        </div>
+
+        <ul class="menu-list inner-scroll-container">
+            <a href="index.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="dashboard">
+                    <div class="icon-wrap"><i class="fa-solid fa-chart-pie"></i></div>
+                    <span class="text">全廠總覽</span>
+                </li>
+            </a>
+            <a href="energy-monitor.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-energy">
+                    <div class="icon-wrap"><i class="fa-solid fa-bolt"></i></div>
+                    <span class="text">能源智慧監測</span>
+                </li>
+            </a>
+            <a href="efficiency-opt.html" style="text-decoration: none;">
+                <li class="menu-item active" data-target="panel-efficiency">
+                    <div class="icon-wrap"><i class="fa-solid fa-leaf"></i></div>
+                    <span class="text">能效診斷與優化</span>
+                </li>
+            </a>
+            <a href="carbon-mgmt.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-carbon">
+                    <div class="icon-wrap"><i class="fa-solid fa-cloud"></i></div>
+                    <span class="text">碳排放管理與核算</span>
+                </li>
+            </a>
+            <a href="supply-chain.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-supply">
+                    <div class="icon-wrap"><i class="fa-solid fa-link"></i></div>
+                    <span class="text">價值鏈與資產營運</span>
+                </li>
+            </a>
+        </ul>
+
+        <!-- 能源智慧監測 次選單 -->
+        <div class="submenu-panel" id="panel-energy" data-pinned="false">
+            <div class="submenu-header"><button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button></div>
+            <ul class="menu-list">
+                <a href="energy-query.html" style="text-decoration: none;"><li class="menu-item"><span class="text">① 能耗查詢</span></li></a>
+                <a href="energy-intensity.html" style="text-decoration: none;"><li class="menu-item"><span class="text">② 能源消費量與強度計算</span></li></a>
+                <a href="energy-flow.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑤ 能流分析</span></li></a>
+            </ul>
+        </div>
+        <!-- 能效診斷與優化 次選單 -->
+        <div class="submenu-panel" id="panel-efficiency" data-pinned="false">
+            <div class="submenu-header"><button class="pin-btn active"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button></div>
+            <ul class="menu-list">
+                <a href="efficiency-analysis.html" style="text-decoration: none;"><li class="menu-item"><span class="text">③ 消費分析與策略推薦</span></li></a>
+                <a href="efficiency-benchmark.html" style="text-decoration: none;"><li class="menu-item"><span class="text">④ 能效對標</span></li></a>
+                <a href="efficiency-balance.html" style="text-decoration: none;"><li class="menu-item active"><span class="text">⑥ 能效平衡與優化</span></li></a>
+            </ul>
+        </div>
+        <!-- 碳排放管理與核算 次選單 -->
+        <div class="submenu-panel" id="panel-carbon" data-pinned="false">
+            <div class="submenu-header"><button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button></div>
+            <ul class="menu-list">
+                <a href="carbon-budget.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑦ 用能與碳排放預算管理</span></li></a>
+                <a href="carbon-accounting.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑧ 碳排放核算</span></li></a>
+                <a href="product-footprint.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑨ 碳足跡核算</span></li></a>
+            </ul>
+        </div>
+        <!-- 價值鏈與資產營運 次選單 -->
+        <div class="submenu-panel" id="panel-supply" data-pinned="false">
+            <div class="submenu-header"><button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button></div>
+            <ul class="menu-list">
+                <a href="supply-chain-mgmt.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑩ 供應鏈碳管理</span></li></a>
+                <a href="carbon-audit.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑪ 碳核查支撐</span></li></a>
+                <a href="carbon-assets.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑫ 碳資產管理</span></li></a>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-area">
+        <header class="iwa-frontend-header">
+            <div class="breadcrumb">
+                數位能碳管理中心 <span class="sep">/</span> 能效診斷與優化 <span class="sep">/</span> <span class="current">能效平衡與負荷優化</span>
+            </div>
+            <div class="header-controls">
+                <i class="fa-solid fa-moon header-icon"></i>
+                <i class="fa-solid fa-expand header-icon" id="btn-fullscreen"></i>
+                <i class="fa-regular fa-bell header-icon"></i>
+                <i class="fa-solid fa-border-all header-icon"></i>
+                <div style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <i class="fa-regular fa-user header-icon"></i>
+                    <span class="text-sm">廠長 / 陳志明</span>
+                </div>
+                <div class="header-divider"></div>
+                <div class="brand-time">
+                    <div class="brand-logo" style="width:24px; height:24px; font-size:10px;">IWA</div>
+                    <div class="time-text">
+                        <span class="text-white text-sm" style="font-weight:bold;">IWA</span>
+                        <span class="text-xs" id="realtime-clock"></span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="content-wrapper inner-scroll-container">
+
+            <!-- 頁面標題 -->
+            <div class="page-header">
+                <div class="page-title-row">
+                    <div class="module-num">6</div>
+                    <h1>能效平衡與負荷優化</h1>
+                </div>
+            </div>
+
+            <!-- KPI 帶 -->
+            <!--
+            <div class="kpi-strip">
+                <div class="kpi-card normal">
+                    <div class="kpi-label">
+                        全廠總負荷
+                        <i class="fa-solid fa-circle-info info-icon" title="三車間當前實時有功功率總和"></i>
+                    </div>
+                    <div class="kpi-value">4,285 <span class="kpi-unit">kW</span></div>
+                    <div class="kpi-sub">
+                        <span>額定容量 6,000 kW · 負載率 71.4%</span>
+                    </div>
+                </div>
+                <div class="kpi-card warn">
+                    <div class="kpi-label">
+                        峰谷負荷差
+                        <i class="fa-solid fa-circle-info info-icon" title="24 小時內最大負荷與最小負荷的差值"></i>
+                    </div>
+                    <div class="kpi-value">2,140 <span class="kpi-unit">kW</span></div>
+                    <div class="kpi-sub">
+                        <span>移峰潛力約 <strong style="color:var(--color-accentPrimary)">320 kW</strong>
+                        
+                    </div>
+                </div>
+                <div class="kpi-card alert">
+                    <div class="kpi-label">
+                        無效能耗占比
+                        <i class="fa-solid fa-circle-info info-icon" title="空載、待機、泄漏等非生產性能耗占總能耗比例"></i>
+                    </div>
+                    <div class="kpi-value">12.8 <span class="kpi-unit">%</span></div>
+                    <div class="kpi-sub">
+                        <span class="kpi-trend up"><i class="fa-solid fa-arrow-up"></i> 較上週 +1.6%</span>
+                        <span>月損失約 ¥ 48,000</span>
+                    </div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-label">
+                        待處理優化建議
+                        <i class="fa-solid fa-circle-info info-icon" title="AI 分析引擎主動識別出的可落地優化機會"></i>
+                    </div>
+                    <div class="kpi-value">7 <span class="kpi-unit">項</span></div>
+                    <div class="kpi-sub">
+                        <span style="color:var(--color-statusHigh); font-weight:600;">● 高 3</span>
+                        <span style="color:var(--color-statusWarn); font-weight:600;">● 中 2</span>
+                        <span style="color:var(--color-indicator); font-weight:600;">● 低 2</span>
+                    </div>
+                </div>
+                
+            </div>
+            -->
+
+            <!-- Section 1: 負荷平衡分析 -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <span class="module-title">負荷平衡分析</span>
+                    <span class="module-desc">掌握部門負荷分佈、高負載風險時段與移峰潛力</span>
+                </div>
+
+                <div class="grid-2">
+                    <!-- 部門實時負荷占比 -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title">部門實時負荷佔比</div>
+                            <div class="live-badge">
+                                <span class="live-dot"></span>
+                                <span>實時監測 · MP / MAG / LED 部門</span>
+                            </div>
+                        </div>
+                        <div class="chart-with-legend">
+                            <div class="chart-container">
+                                <div id="loadShareChart" style="width:100%;height:100%;"></div>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:16px; flex:0.5;">
+                                <div class="workshop-legend" id="loadShareLegend"></div>
+                                <div class="capacity-note">
+                                    <div class="capacity-note-item">
+                                        <span class="capacity-note-label">額定容量</span>
+                                        <span class="capacity-note-value">15,000<span class="unit">kVA</span></span>
+                                    </div>
+                                    <div class="capacity-note-item">
+                                        <span class="capacity-note-label">即時用量（加總）</span>
+                                        <span class="capacity-note-value" id="liveTotalLoad">—<span class="unit">kW</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 24 小時負載率分佈熱力圖 -->
+                    <div class="panel panel-heatmap">
+                        <div class="panel-header">
+                            <div class="panel-title">24 小時負載率分佈熱力圖</div>
+                            <div class="control-group">
+                                <div class="iwa-dd2-wrap" id="dd-heatmap-year" data-value="2026">
+                                    <div class="iwa-dd2-trigger" onclick="toggleDD('dd-heatmap-year')">
+                                        <span class="dd2-text" id="dd-heatmap-year-val">2026</span>
+                                        <svg class="dd2-chevron" viewBox="0 0 32 32"><path d="M15.998 19.576l12.091-12.091c0.895-0.895 2.345-0.895 3.24 0s0.895 2.345 0 3.24l-13.322 13.322c-0.093 0.154-0.206 0.299-0.339 0.431-0.298 0.298-0.658 0.497-1.039 0.596-0.794 0.258-1.7 0.072-2.331-0.558-0.184-0.183-0.329-0.39-0.438-0.611l-13.19-13.19c-0.893-0.893-0.893-2.341 0-3.234s2.341-0.893 3.234 0l12.095 12.095z"/></svg>
+                                    </div>
+                                    <div class="iwa-dd2-panel">
+                                        <div class="dd2-option selected" data-val="2026" onclick="selectDD('dd-heatmap-year','2026',this); onHeatmapYearChange(2026);"><span class="dd2-opt-text">2026</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                                        <div class="dd2-option" data-val="2025" onclick="selectDD('dd-heatmap-year','2025',this); onHeatmapYearChange(2025);"><span class="dd2-opt-text">2025</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                                        <div class="dd2-option" data-val="2024" onclick="selectDD('dd-heatmap-year','2024',this); onHeatmapYearChange(2024);"><span class="dd2-opt-text">2024</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.21659 1.72617C8.5104 1.42968 8.99278 1.42406 9.29397 1.71328C9.57183 1.98023 9.59826 2.40539 9.36945 2.70234L9.30683 2.77383L3.66778 8.4614C3.39564 8.73609 2.96183 8.76094 2.66016 8.53383L2.58778 8.47172L0.226829 6.18094C-0.0729327 5.89008 -0.0762661 5.41523 0.218972 5.12039C0.491591 4.84804 0.923734 4.82414 1.22421 5.05078L1.29635 5.11265L3.11112 6.87375L8.21612 1.72617H8.21659Z" fill="#F8B62D"/></svg></span></div>
+                                    </div>
+                                </div>
+                                <div class="view-toggle" id="heatmapViewToggle">
+                                    <button class="active" data-view="day">日</button>
+                                    <button data-view="week">週</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="heatmap-legend">
+                            <div class="heatmap-legend-item"><span class="heatmap-legend-swatch" style="background: rgba(255,45,85,0.85);"></span>高負載量 &gt; 2,000 kWh</div>
+                            <div class="heatmap-legend-item"><span class="heatmap-legend-swatch" style="background: rgba(241,222,117,0.75);"></span>中負載量 1,000–2,000 kWh</div>
+                            <div class="heatmap-legend-item"><span class="heatmap-legend-swatch" style="background: rgba(92,199,54,0.75);"></span>低負載量 &lt; 1,000 kWh</div>
+                            <div class="heatmap-legend-item"><span class="heatmap-legend-swatch" style="background: rgba(255,255,255,0.05);"></span>無資料</div>
+                        </div>
+                        <div class="heatmap-container" id="heatmap"></div>
+                    </div>
+                </div>
+
+                <!-- 峰谷負荷對比 -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">24 小時峰谷負荷</div>
+                        <div class="control-group">
+                            <div class="iwa-dd2-wrap" id="dd-pv-date" data-value="2026-4">
+                                <div class="iwa-dd2-trigger" onclick="toggleDD('dd-pv-date')">
+                                    <span class="dd2-text" id="dd-pv-date-val">2026/4</span>
+                                    <svg class="dd2-chevron" viewBox="0 0 32 32"><path d="M15.998 19.576l12.091-12.091c0.895-0.895 2.345-0.895 3.24 0s0.895 2.345 0 3.24l-13.322 13.322c-0.093 0.154-0.206 0.299-0.339 0.431-0.298 0.298-0.658 0.497-1.039 0.596-0.794 0.258-1.7 0.072-2.331-0.558-0.184-0.183-0.329-0.39-0.438-0.611l-13.19-13.19c-0.893-0.893-0.893-2.341 0-3.234s2.341-0.893 3.234 0l12.095 12.095z"/></svg>
+                                </div>
+                                <div class="iwa-dd2-panel">
+                                    <div class="dd2-option" data-val="2026-1" onclick="selectDD('dd-pv-date','2026/1',this);onPvChange()"><span class="dd2-opt-text">2026/1</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2026-2" onclick="selectDD('dd-pv-date','2026/2',this);onPvChange()"><span class="dd2-opt-text">2026/2</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2026-3" onclick="selectDD('dd-pv-date','2026/3',this);onPvChange()"><span class="dd2-opt-text">2026/3</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option selected" data-val="2026-4" onclick="selectDD('dd-pv-date','2026/4',this);onPvChange()"><span class="dd2-opt-text">2026/4</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2026-5" onclick="selectDD('dd-pv-date','2026/5',this);onPvChange()"><span class="dd2-opt-text">2026/5</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2026-6" onclick="selectDD('dd-pv-date','2026/6',this);onPvChange()"><span class="dd2-opt-text">2026/6</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2026-7" onclick="selectDD('dd-pv-date','2026/7',this);onPvChange()"><span class="dd2-opt-text">2026/7</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2026-8" onclick="selectDD('dd-pv-date','2026/8',this);onPvChange()"><span class="dd2-opt-text">2026/8</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2026-9" onclick="selectDD('dd-pv-date','2026/9',this);onPvChange()"><span class="dd2-opt-text">2026/9</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2026-10" onclick="selectDD('dd-pv-date','2026/10',this);onPvChange()"><span class="dd2-opt-text">2026/10</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2026-11" onclick="selectDD('dd-pv-date','2026/11',this);onPvChange()"><span class="dd2-opt-text">2026/11</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2026-12" onclick="selectDD('dd-pv-date','2026/12',this);onPvChange()"><span class="dd2-opt-text">2026/12</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-1" onclick="selectDD('dd-pv-date','2025/1',this);onPvChange()"><span class="dd2-opt-text">2025/1</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-2" onclick="selectDD('dd-pv-date','2025/2',this);onPvChange()"><span class="dd2-opt-text">2025/2</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-3" onclick="selectDD('dd-pv-date','2025/3',this);onPvChange()"><span class="dd2-opt-text">2025/3</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-4" onclick="selectDD('dd-pv-date','2025/4',this);onPvChange()"><span class="dd2-opt-text">2025/4</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-5" onclick="selectDD('dd-pv-date','2025/5',this);onPvChange()"><span class="dd2-opt-text">2025/5</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-6" onclick="selectDD('dd-pv-date','2025/6',this);onPvChange()"><span class="dd2-opt-text">2025/6</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-7" onclick="selectDD('dd-pv-date','2025/7',this);onPvChange()"><span class="dd2-opt-text">2025/7</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-8" onclick="selectDD('dd-pv-date','2025/8',this);onPvChange()"><span class="dd2-opt-text">2025/8</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-9" onclick="selectDD('dd-pv-date','2025/9',this);onPvChange()"><span class="dd2-opt-text">2025/9</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-10" onclick="selectDD('dd-pv-date','2025/10',this);onPvChange()"><span class="dd2-opt-text">2025/10</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-11" onclick="selectDD('dd-pv-date','2025/11',this);onPvChange()"><span class="dd2-opt-text">2025/11</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025-12" onclick="selectDD('dd-pv-date','2025/12',this);onPvChange()"><span class="dd2-opt-text">2025/12</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-1" onclick="selectDD('dd-pv-date','2024/1',this);onPvChange()"><span class="dd2-opt-text">2024/1</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-2" onclick="selectDD('dd-pv-date','2024/2',this);onPvChange()"><span class="dd2-opt-text">2024/2</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-3" onclick="selectDD('dd-pv-date','2024/3',this);onPvChange()"><span class="dd2-opt-text">2024/3</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-4" onclick="selectDD('dd-pv-date','2024/4',this);onPvChange()"><span class="dd2-opt-text">2024/4</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-5" onclick="selectDD('dd-pv-date','2024/5',this);onPvChange()"><span class="dd2-opt-text">2024/5</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-6" onclick="selectDD('dd-pv-date','2024/6',this);onPvChange()"><span class="dd2-opt-text">2024/6</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-7" onclick="selectDD('dd-pv-date','2024/7',this);onPvChange()"><span class="dd2-opt-text">2024/7</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-8" onclick="selectDD('dd-pv-date','2024/8',this);onPvChange()"><span class="dd2-opt-text">2024/8</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-9" onclick="selectDD('dd-pv-date','2024/9',this);onPvChange()"><span class="dd2-opt-text">2024/9</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-10" onclick="selectDD('dd-pv-date','2024/10',this);onPvChange()"><span class="dd2-opt-text">2024/10</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-11" onclick="selectDD('dd-pv-date','2024/11',this);onPvChange()"><span class="dd2-opt-text">2024/11</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024-12" onclick="selectDD('dd-pv-date','2024/12',this);onPvChange()"><span class="dd2-opt-text">2024/12</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 即時負荷快照 -->
+                    <!--
+                    <div class="pv-snapshot">
+                        <div class="pv-snapshot-label">
+                            <i class="fa-solid fa-bolt" style="color: var(--color-accentPrimary);"></i>
+                            當前即時負荷
+                        </div>
+                        <div class="pv-snapshot-value" id="pvLiveValue">—<span class="unit">kW</span></div>
+                        <span class="pv-snapshot-tag" id="pvLiveTag">—</span>
+                        <div class="pv-snapshot-time">
+                            <i class="fa-regular fa-clock"></i>
+                            <span id="pvLiveTime">—</span>
+                        </div>
+                    </div>
+                    -->
+
+
+                    <!-- 5 時段圖例 -->
+                    <div class="pv-legend">
+                        <div class="pv-legend-item"><span class="pv-legend-swatch" style="background: rgba(255,45,85,0.80);"></span>尖峰 14–15 / 20–21</div>
+                        <div class="pv-legend-item"><span class="pv-legend-swatch" style="background: rgba(241,222,117,0.80);"></span>峰 8–11 / 17–20 / 21–22</div>
+                        <div class="pv-legend-item"><span class="pv-legend-swatch" style="background: #A6FFB2;"></span>平 11–14 / 15–17 / 22–24</div>
+                        <div class="pv-legend-item"><span class="pv-legend-swatch" style="background: rgba(92,199,54,0.80);"></span>谷 0–3</div>
+                        <div class="pv-legend-item"><span class="pv-legend-swatch" style="background: rgba(0,176,255,0.80);"></span>深谷 3–8</div>
+                    </div>
+                    <div class="chart-container tall">
+                        <div id="peakValleyChart" style="width:100%;height:100%;"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 2: BU 用能與面積對比 -->
+            <section class="module-section">
+                <div class="module-section-header">
+                    <span class="module-title">BU 用能與面積對比</span>
+                    <span class="module-desc">年度 EUI 季節趨勢、跨 BU 比較與行業標準對標</span>
+                </div>
+
+                <!-- Panel A：年度 EUI 趨勢圖（主視覺） -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-chart-line icon"></i>年度 EUI 趨勢
+                            <button type="button" id="industryRefBtn" class="ref-btn" aria-label="產業 EUI 參考">
+                                <i class="fa-solid fa-circle-info"></i>產業參考
+                            </button>
+                        </div>
+                        <div class="control-group">
+                            <div class="iwa-dd2-wrap" id="dd-bu-year" data-value="2026">
+                                <div class="iwa-dd2-trigger" onclick="toggleDD('dd-bu-year')">
+                                    <span class="dd2-text" id="dd-bu-year-val">2026</span>
+                                    <svg class="dd2-chevron" viewBox="0 0 32 32"><path d="M15.998 19.576l12.091-12.091c0.895-0.895 2.345-0.895 3.24 0s0.895 2.345 0 3.24l-13.322 13.322c-0.093 0.154-0.206 0.299-0.339 0.431-0.298 0.298-0.658 0.497-1.039 0.596-0.794 0.258-1.7 0.072-2.331-0.558-0.184-0.183-0.329-0.39-0.438-0.611l-13.19-13.19c-0.893-0.893-0.893-2.341 0-3.234s2.341-0.893 3.234 0l12.095 12.095z"/></svg>
+                                </div>
+                                <div class="iwa-dd2-panel">
+                                    <div class="dd2-option selected" data-val="2026" onclick="selectDD('dd-bu-year','2026',this); onBuYearChange(2026);"><span class="dd2-opt-text">2026</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2025" onclick="selectDD('dd-bu-year','2025',this); onBuYearChange(2025);"><span class="dd2-opt-text">2025</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                    <div class="dd2-option" data-val="2024" onclick="selectDD('dd-bu-year','2024',this); onBuYearChange(2024);"><span class="dd2-opt-text">2024</span><span class="dd2-tick"><svg viewBox="0 0 10 10" fill="none"><path d="M8.217 1.726C8.51 1.43 8.993 1.424 9.294 1.713c.278.267.304.692.075.99L9.307 2.774 3.668 8.461c-.272.275-.706.3-1.008.073l-.072-.062L.227 6.181c-.3-.29-.303-.765-.008-1.06.272-.272.704-.296 1.005-.07l.072.063 1.815 1.76 5.105-5.148z" fill="#F8B62D"/></svg></span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 四張 BU 年度摘要卡（2x2 排列、可點擊查看月度明細） -->
+                    <div class="bu-summary-grid">
+                        <div class="bu-summary-card" data-bu="MP" role="button" tabindex="0">
+                            <div class="bu-summary-head">
+                                <span class="workshop-chip" style="background: var(--color-workshop1);"></span>
+                                <span class="bu-summary-name">MP</span>
+                                <i class="fa-solid fa-chevron-right bu-card-arrow"></i>
+                            </div>
+                            <div class="bu-summary-metrics">
+                                <div class="bu-metric">
+                                    <div class="bu-metric-label">年均 EUI</div>
+                                    <div class="bu-metric-value" id="mp-avg">— <span class="bu-metric-unit">kWh/m²·月</span></div>
+                                </div>
+                                <div class="bu-metric">
+                                    <div class="bu-metric-label">夏季峰值</div>
+                                    <div class="bu-metric-value" id="mp-summer">— <span class="bu-metric-unit">kWh/m²·月</span></div>
+                                </div>
+                                <div class="bu-metric">
+                                    <div class="bu-metric-label">vs 標準 (260)</div>
+                                    <div class="bu-metric-value" id="mp-gap">— <span class="bu-metric-unit">%</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bu-summary-card" data-bu="MAG" role="button" tabindex="0">
+                            <div class="bu-summary-head">
+                                <span class="workshop-chip" style="background: var(--color-workshop2);"></span>
+                                <span class="bu-summary-name">MAG</span>
+                                <i class="fa-solid fa-chevron-right bu-card-arrow"></i>
+                            </div>
+                            <div class="bu-summary-metrics">
+                                <div class="bu-metric">
+                                    <div class="bu-metric-label">年均 EUI</div>
+                                    <div class="bu-metric-value" id="mag-avg">— <span class="bu-metric-unit">kWh/m²·月</span></div>
+                                </div>
+                                <div class="bu-metric">
+                                    <div class="bu-metric-label">夏季峰值</div>
+                                    <div class="bu-metric-value" id="mag-summer">— <span class="bu-metric-unit">kWh/m²·月</span></div>
+                                </div>
+                                <div class="bu-metric">
+                                    <div class="bu-metric-label">vs 標準 (260)</div>
+                                    <div class="bu-metric-value" id="mag-gap">— <span class="bu-metric-unit">%</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bu-summary-card" data-bu="LED" role="button" tabindex="0">
+                            <div class="bu-summary-head">
+                                <span class="workshop-chip" style="background: var(--color-workshop3);"></span>
+                                <span class="bu-summary-name">LED</span>
+                                <i class="fa-solid fa-chevron-right bu-card-arrow"></i>
+                            </div>
+                            <div class="bu-summary-metrics">
+                                <div class="bu-metric">
+                                    <div class="bu-metric-label">年均 EUI</div>
+                                    <div class="bu-metric-value" id="led-avg">— <span class="bu-metric-unit">kWh/m²·月</span></div>
+                                </div>
+                                <div class="bu-metric">
+                                    <div class="bu-metric-label">夏季峰值</div>
+                                    <div class="bu-metric-value" id="led-summer">— <span class="bu-metric-unit">kWh/m²·月</span></div>
+                                </div>
+                                <div class="bu-metric">
+                                    <div class="bu-metric-label">vs 標準 (260)</div>
+                                    <div class="bu-metric-value" id="led-gap">— <span class="bu-metric-unit">%</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- 主圖 -->
+                    <div class="chart-container" style="height: 380px; margin-top: 16px;">
+                        <canvas id="buEuiTrendChart"></canvas>
+                    </div>
+
+                    <!-- 圖例 -->
+                    <div class="bu-trend-footnote">
+                        <div class="bu-trend-legend">
+                            <span class="bu-trend-legend-item"><span class="bu-trend-swatch" style="background: rgba(96,165,250,0.18); border: 1px solid rgba(96,165,250,0.5);"></span>夏季空調負荷期 (6–9月)</span>
+                            <span class="bu-trend-legend-item"><span class="bu-trend-swatch dashed-swatch"></span>標準 260 kWh/m²·月（虛線）</span>
+                            <span class="bu-trend-legend-item bu-trend-hint"><i class="fa-solid fa-hand-pointer"></i> 點擊上方部門卡片查看月度明細</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal：BU 月度明細 -->
+                <div class="bu-modal-overlay" id="buModalOverlay" hidden>
+                    <div class="bu-modal" role="dialog" aria-modal="true" aria-labelledby="buModalTitle">
+                        <div class="bu-modal-header">
+                            <div class="bu-modal-title" id="buModalTitle">
+                                <span class="workshop-chip" id="buModalChip"></span>
+                                <span id="buModalName">—</span>
+                                <span class="bu-summary-sector" id="buModalSector">—</span>
+                            </div>
+                            <button type="button" class="bu-modal-close" id="buModalClose" aria-label="關閉">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <div class="bu-modal-meta" id="buModalMeta"></div>
+                        <div class="bu-modal-table-wrap">
+                            <table class="efficiency-table bu-modal-table">
+                                <thead>
+                                    <tr>
+                                        <th>月份</th>
+                                        <th>使用面積</th>
+                                        <th>月用能</th>
+                                        <th>月 EUI</th>
+                                        <th>vs 標準 (260)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="buModalTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backdrop for industry ref popover -->
+                <div class="industry-ref-backdrop" id="industryRefBackdrop" hidden></div>
+
+                <!-- Popover：產業參考 EUI -->
+                <div class="industry-ref-popover" id="industryRefPopover" hidden>
+                    <div class="industry-ref-header">
+                        <div>
+                            <div class="industry-ref-title">產業 EUI 參考表</div>
+                            <div class="industry-ref-sub">扣除室內停車場面積之 EUI 值（kWh/m²·<strong>yr</strong>）</div>
+                        </div>
+                        <button type="button" class="bu-modal-close" id="industryRefClose" aria-label="關閉">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div class="industry-ref-body">
+                        <table class="industry-ref-table">
+                            <colgroup>
+                                <col style="width: 28%;">
+                                <col style="width: 42%;">
+                                <col style="width: 30%;">
+                            </colgroup>
+                            <thead>
+                                <tr><th>主類別</th><th>次類別</th><th class="num">平均值 (kWh/m²·yr)</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td rowspan="2" class="cat-cell">政府機關類</td><td>中央（一般行政）</td><td class="num">125.7</td></tr>
+                                <tr><td>地方（一般行政）</td><td class="num">99.6</td></tr>
+                                <tr><td rowspan="4" class="cat-cell">學校類</td><td>一般大學</td><td class="num">78.5</td></tr>
+                                <tr><td>科技大學</td><td class="num">68.4</td></tr>
+                                <tr><td>高級中學</td><td class="num">61.8</td></tr>
+                                <tr><td>工商職業學校</td><td class="num">66.7</td></tr>
+                                <tr><td class="cat-cell" colspan="2">辦公大樓類</td><td class="num">165.5</td></tr>
+                                <tr><td rowspan="3" class="cat-cell">旅館類</td><td>國際觀光旅館</td><td class="num">258.8</td></tr>
+                                <tr><td>一般觀光旅館</td><td class="num">219.8</td></tr>
+                                <tr><td>一般旅館</td><td class="num">235.9</td></tr>
+                                <tr><td rowspan="5" class="cat-cell">百貨商場類</td><td>購物中心</td><td class="num">301.0</td></tr>
+                                <tr><td>百貨公司</td><td class="num">334.1</td></tr>
+                                <tr><td>量販店（一般）</td><td class="num">358.4</td></tr>
+                                <tr><td>量販店（無冷凍冷藏）</td><td class="num">282.3</td></tr>
+                                <tr><td>複合式商場</td><td class="num">265.8</td></tr>
+                                <tr><td rowspan="3" class="cat-cell">醫院類</td><td>醫學中心</td><td class="num">287.1</td></tr>
+                                <tr><td>區域醫院</td><td class="num">231.5</td></tr>
+                                <tr><td>地區醫院</td><td class="num">175.8</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="industry-ref-foot">註：此為<strong>年度</strong> EUI（kWh/m²·yr），與本頁圖表的「月度 EUI」單位不同，僅作橫向參考</div>
+                </div>
+            </section>
+            
+            <!-- Section 3: AI 優化建議 -->
+            <!--
+            <section class="module-section">
+                <div class="module-section-header">
+                    <span class="module-title">AI 優化建議</span>
+                    <span class="module-desc">基於實時數據分析產出的可落地行動建議，按優先級排序</span>
+                    <div class="suggestion-filter" id="suggestion-filter" style="margin-left:auto;">
+                        <button class="filter-chip active" data-filter="all">全部 <span class="count">7</span></button>
+                        <button class="filter-chip" data-filter="high">高 <span class="count">3</span></button>
+                        <button class="filter-chip" data-filter="medium">中 <span class="count">2</span></button>
+                        <button class="filter-chip" data-filter="low">低 <span class="count">2</span></button>
+                    </div>
+                </div>
+
+                <div class="suggestion-list" id="suggestion-list">
+
+                    <div class="suggestion-card" data-priority="high">
+                        <div class="priority-badge high">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <span>高</span>
+                        </div>
+                        <div class="suggestion-content">
+                            <div class="suggestion-meta">
+                                <span class="suggestion-workshop">MAG</span>
+                                <span>蒸汽系統</span>
+                                <span>·</span>
+                                <span>識別時間 14:28</span>
+                            </div>
+                            <div class="suggestion-title">蒸汽管網壓力偏高，建議降壓運行</div>
+                            <div class="suggestion-desc">
+                                當前管網壓力 <strong>1.2 MPa</strong>，工藝需求僅為 0.8 MPa。過壓運行導致熱損失增加約 18%。建議調整減壓閥至 0.8 MPa，並檢修 3# / 7# 疏水閥。
+                            </div>
+                        </div>
+                        <div class="suggestion-impact">
+                            <div>
+                                <div class="impact-value"><i class="fa-solid fa-arrow-down"></i> 日省蒸汽 3.2 噸</div>
+                                <div class="impact-label">約 ¥ 1,280 / 日 · 年效益 ¥ 46.7 萬</div>
+                            </div>
+                            <div class="suggestion-actions">
+                                <button class="btn-ghost" onclick="showDetail(this)"><i class="fa-solid fa-eye"></i> 詳情</button>
+                                <button class="btn-primary" onclick="adoptSuggestion(this)">採納</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="suggestion-card" data-priority="high">
+                        <div class="priority-badge high">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <span>高</span>
+                        </div>
+                        <div class="suggestion-content">
+                            <div class="suggestion-meta">
+                                <span class="suggestion-workshop">MAG</span>
+                                <span>空壓系統</span>
+                                <span>·</span>
+                                <span>識別時間 13:52</span>
+                            </div>
+                            <div class="suggestion-title">2# 空壓機長時間空載運行</div>
+                            <div class="suggestion-desc">
+                                過去 6 小時 2# 空壓機空載時間占比達 <strong>42%</strong>，待機能耗 56 kWh。建議啟用「按需啟停」模式，或調度至 1# 空壓機聯動運行。
+                            </div>
+                        </div>
+                        <div class="suggestion-impact">
+                            <div>
+                                <div class="impact-value"><i class="fa-solid fa-arrow-down"></i> 日省電 320 度</div>
+                                <div class="impact-label">約 ¥ 256 / 日 · 年效益 ¥ 9.3 萬</div>
+                            </div>
+                            <div class="suggestion-actions">
+                                <button class="btn-ghost" onclick="showDetail(this)"><i class="fa-solid fa-eye"></i> 詳情</button>
+                                <button class="btn-primary" onclick="adoptSuggestion(this)">採納</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="suggestion-card" data-priority="high">
+                        <div class="priority-badge high">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <span>高</span>
+                        </div>
+                        <div class="suggestion-content">
+                            <div class="suggestion-meta">
+                                <span class="suggestion-workshop">MP</span>
+                                <span>負荷調度</span>
+                                <span>·</span>
+                                <span>識別時間 今日</span>
+                            </div>
+                            <div class="suggestion-title">移峰填谷：將 10% 負荷由峰時轉移至谷時</div>
+                            <div class="suggestion-desc">
+                                MP 產線排程彈性較大，建議將 <strong>10:00-14:00 之約 320 kW 負荷</strong>轉移至 01:00-05:00 谷時運行（產線 A3 / A5 可獨立執行）。
+                            </div>
+                        </div>
+                        <div class="suggestion-impact">
+                            <div>
+                                <div class="impact-value"><i class="fa-solid fa-arrow-down"></i> 日省電費 ¥ 820</div>
+                                <div class="impact-label">峰谷差價 ¥0.32/度 · 月效益 ¥ 2.46 萬</div>
+                            </div>
+                            <div class="suggestion-actions">
+                                <button class="btn-ghost" onclick="showDetail(this)"><i class="fa-solid fa-eye"></i> 詳情</button>
+                                <button class="btn-primary" onclick="adoptSuggestion(this)">採納</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="suggestion-card" data-priority="medium">
+                        <div class="priority-badge medium">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span>中</span>
+                        </div>
+                        <div class="suggestion-content">
+                            <div class="suggestion-meta">
+                                <span class="suggestion-workshop">LED</span>
+                                <span>HVAC</span>
+                                <span>·</span>
+                                <span>識別時間 今日</span>
+                            </div>
+                            <div class="suggestion-title">冷凍水出水溫度設定可上調 1℃</div>
+                            <div class="suggestion-desc">
+                                LED 當前冷凍水出水溫度 7℃，根據實時環境與工藝參數預測，設為 <strong>8℃</strong> 仍可滿足工藝要求。溫度每提高 1℃ 可降低主機能耗約 3%。
+                            </div>
+                        </div>
+                        <div class="suggestion-impact">
+                            <div>
+                                <div class="impact-value"><i class="fa-solid fa-arrow-down"></i> 日省電 180 度</div>
+                                <div class="impact-label">約 ¥ 144 / 日 · 年效益 ¥ 5.2 萬</div>
+                            </div>
+                            <div class="suggestion-actions">
+                                <button class="btn-ghost" onclick="showDetail(this)"><i class="fa-solid fa-eye"></i> 詳情</button>
+                                <button class="btn-primary" onclick="adoptSuggestion(this)">採納</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="suggestion-card" data-priority="medium">
+                        <div class="priority-badge medium">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span>中</span>
+                        </div>
+                        <div class="suggestion-content">
+                            <div class="suggestion-meta">
+                                <span class="suggestion-workshop">LED</span>
+                                <span>備用設備</span>
+                                <span>·</span>
+                                <span>識別時間 13:15</span>
+                            </div>
+                            <div class="suggestion-title">谷時啟動備用設備，降低峰時需量</div>
+                            <div class="suggestion-desc">
+                                建議將LED 的 2# / 4# 備用冷水機組調整至 <strong>02:00-06:00 谷時</strong>啟動並製冰儲冷，白天峰時釋放使用，降低峰時尖峰需量約 160 kW。
+                            </div>
+                        </div>
+                        <div class="suggestion-impact">
+                            <div>
+                                <div class="impact-value"><i class="fa-solid fa-arrow-down"></i> 降需量費 ¥ 6,400/月</div>
+                                <div class="impact-label">按需量電價 ¥40/kW 估算</div>
+                            </div>
+                            <div class="suggestion-actions">
+                                <button class="btn-ghost" onclick="showDetail(this)"><i class="fa-solid fa-eye"></i> 詳情</button>
+                                <button class="btn-primary" onclick="adoptSuggestion(this)">採納</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="suggestion-card" data-priority="low">
+                        <div class="priority-badge low">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>低</span>
+                        </div>
+                        <div class="suggestion-content">
+                            <div class="suggestion-meta">
+                                <span class="suggestion-workshop">MP</span>
+                                <span>照明系統</span>
+                                <span>·</span>
+                                <span>識別時間 昨日</span>
+                            </div>
+                            <div class="suggestion-title">白班時段非生產區照明未按排程關閉</div>
+                            <div class="suggestion-desc">
+                                倉儲區 A-W2 / A-W3 白班期間照明持續運行，建議調整智能照明控制策略，結合人體感應與日光採光。
+                            </div>
+                        </div>
+                        <div class="suggestion-impact">
+                            <div>
+                                <div class="impact-value"><i class="fa-solid fa-arrow-down"></i> 日省電 45 度</div>
+                                <div class="impact-label">約 ¥ 36 / 日</div>
+                            </div>
+                            <div class="suggestion-actions">
+                                <button class="btn-ghost" onclick="showDetail(this)"><i class="fa-solid fa-eye"></i> 詳情</button>
+                                <button class="btn-primary" onclick="adoptSuggestion(this)">採納</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="suggestion-card" data-priority="low">
+                        <div class="priority-badge low">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>低</span>
+                        </div>
+                        <div class="suggestion-content">
+                            <div class="suggestion-meta">
+                                <span class="suggestion-workshop">全廠</span>
+                                <span>變壓器</span>
+                                <span>·</span>
+                                <span>識別時間 本週</span>
+                            </div>
+                            <div class="suggestion-title">2# 變壓器長期輕載運行（負載率 &lt; 30%）</div>
+                            <div class="suggestion-desc">
+                                2# 變壓器近 30 天平均負載率 <strong>27%</strong>，空載損耗占比偏高。建議評估是否可停運或與 1# 變壓器並列運行。
+                            </div>
+                        </div>
+                        <div class="suggestion-impact">
+                            <div>
+                                <div class="impact-value"><i class="fa-solid fa-arrow-down"></i> 月省電 1,200 度</div>
+                                <div class="impact-label">需評估供電可靠性</div>
+                            </div>
+                            <div class="suggestion-actions">
+                                <button class="btn-ghost" onclick="showDetail(this)"><i class="fa-solid fa-eye"></i> 詳情</button>
+                                <button class="btn-primary" onclick="adoptSuggestion(this)">採納</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+        </div>
+        -->
+    </main>
+</div>
+<div id="heatmap-tooltip"></div>
+
+<script>
+    // ── Sidebar ──
+    const sidebar = document.getElementById('mainSidebar');
+    const mainPinBtn = document.getElementById('sidebarPinBtn');
+    const panels = document.querySelectorAll('.submenu-panel');
+    const menuItems = document.querySelectorAll('.menu-item[data-target]');
+
+    let isMainSidebarPinned = false;
+    let globalHideTimeout = null;
+
+    mainPinBtn.addEventListener('click', () => {
+        isMainSidebarPinned = !isMainSidebarPinned;
+        if (isMainSidebarPinned) {
+            sidebar.classList.remove('mini');
+            mainPinBtn.classList.add('active');
+        } else {
+            sidebar.classList.add('mini');
+            mainPinBtn.classList.remove('active');
+            panels.forEach(p => p.classList.remove('open'));
+        }
+    });
+
+    sidebar.addEventListener('mouseenter', () => {
+        clearTimeout(globalHideTimeout);
+        if (!isMainSidebarPinned) sidebar.classList.remove('mini');
+    });
+
+    sidebar.addEventListener('mouseleave', () => {
+        clearTimeout(globalHideTimeout);
+        globalHideTimeout = setTimeout(() => {
+            const hasPinnedPanel = Array.from(panels).some(p => p.dataset.pinned === 'true');
+            if (!isMainSidebarPinned) {
+                if (!hasPinnedPanel) {
+                    sidebar.classList.add('mini');
+                    panels.forEach(p => p.classList.remove('open'));
+                } else {
+                    sidebar.classList.remove('mini');
+                    panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+                }
+            } else {
+                panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+            }
+        }, 1000);
+    });
+
+    menuItems.forEach(item => {
+        item.addEventListener('mouseenter', () => {
+            const targetId = item.dataset.target;
+            if (targetId === 'dashboard') return;
+            panels.forEach(p => {
+                if (p.id === targetId) p.classList.add('open');
+                else if (p.dataset.pinned !== 'true') p.classList.remove('open');
+            });
+        });
+    });
+
+    panels.forEach(panel => {
+        const pinBtn = panel.querySelector('.pin-btn');
+        pinBtn.addEventListener('click', () => {
+            const isPinned = panel.dataset.pinned === 'true';
+            panel.dataset.pinned = !isPinned;
+            pinBtn.classList.toggle('active', !isPinned);
+        });
+    });
+
+    // ==========================================
+    // 2. 全螢幕
+    // ==========================================
+    const fullscreenBtn = document.getElementById('btn-fullscreen');
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => {
+                document.body.classList.add('is-fullscreen');
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    });
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) document.body.classList.remove('is-fullscreen');
+    });
+
+    // ==========================================
+    // 3. 即時時鐘
+    // ==========================================
+    function updateClock() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const H = String(now.getHours()).padStart(2, '0');
+        const M = String(now.getMinutes()).padStart(2, '0');
+        const S = String(now.getSeconds()).padStart(2, '0');
+        const el = document.getElementById('realtime-clock');
+        if (el) el.textContent = `${y}/${m}/${d} ${H}:${M}:${S}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ==========================================
+    // 4. IWA 色彩常數（對齊 Design Token）
+    // ==========================================
+    const COLOR = {
+        workshop1: '#60a5fa',
+        workshop2: '#a78bfa',
+        workshop3: '#34d399',
+        workshop4: '#94a3b6',
+        accent:    '#F8B62D',
+        high:      '#FF2D55',
+        warn:      '#F1DE75',
+        normal:    '#5CC736',
+        indicator: '#00B0FF',
+        textMain:  '#ffffff',
+        textSub:   'rgba(255,255,255,0.70)',
+        textMuted: 'rgba(255,255,255,0.50)',
+        panelBg:   '#2C333C',
+        bgBase:    '#212831'
+    };
+
+    // ==========================================
+    // 5. 車間實時負荷占比（Doughnut）
+    // ==========================================
+    const loadShareData = [
+        { name: 'MP',     value: 1580, color: COLOR.workshop1 },
+        { name: 'MAG',    value: 1720, color: COLOR.workshop2 },
+        { name: 'LED',    value: 985,  color: COLOR.workshop3 }
+    ];
+    const loadTotal = loadShareData.reduce((s, d) => s + d.value, 0);
+
+    // 寫入附註區「即時用量」
+    document.getElementById('liveTotalLoad').innerHTML =
+        loadTotal.toLocaleString() + '<span class="unit">kW</span>';
+
+    const loadShareChart = echarts.init(document.getElementById('loadShareChart'));
+    loadShareChart.setOption({
+        tooltip: {
+            trigger: 'item',
+            backgroundColor: 'rgba(33,40,49,0.95)',
+            borderColor: 'rgba(255,255,255,0.50)',
+            borderWidth: 0.5,
+            padding: [10, 14],
+            textStyle: { color: '#fff', fontSize: 12, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui' },
+            formatter: p => `${p.name}<br/>${p.value.toLocaleString()} kW (${p.percent}%)`
+        },
+        series: [{
+            type: 'pie',
+            radius: ['55%', '78%'],
+            center: ['50%', '50%'],
+            data: loadShareData.map(d => ({
+                name: d.name, value: d.value,
+                itemStyle: { color: d.color, borderColor: COLOR.panelBg, borderWidth: 3 }
+            })),
+            label: { show: false },
+            emphasis: { scale: true, scaleSize: 6 }
+        }],
+        graphic: [{
+            type: 'group', left: 'center', top: 'middle',
+            children: [
+                { type: 'text', top: -48, style: { text: '即時用量', fill: COLOR.textMuted, fontSize: 14, fontWeight: 400, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui', textAlign: 'center' } },
+                { type: 'text', top: -22, style: { text: loadTotal.toLocaleString(), fill: COLOR.textMain, fontSize: 35, fontWeight: 600, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui', textAlign: 'center' } },
+                { type: 'text', top: 24, style: { text: 'kW', fill: COLOR.textMuted, fontSize: 14, fontWeight: 400, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui', textAlign: 'center' } }
+            ]
+        }]
+    });
+
+    // 自訂圖例
+    const legendHtml = loadShareData.map(d => {
+        const pct = ((d.value / loadTotal) * 100).toFixed(1);
+        return `
+            <div class="legend-item">
+                <span class="legend-dot" style="background:${d.color};"></span>
+                <span>${d.name}</span>
+                <span class="legend-value">${d.value.toLocaleString()} kW · ${pct}%</span>
+            </div>`;
+    }).join('');
+    document.getElementById('loadShareLegend').innerHTML = legendHtml;
+
+    // ==========================================
+    // 6. 24 小時負載率分佈熱力圖
+    //   - 4 部門 × (日視圖 24 小時 / 週視圖 7 天)
+    //   - 數值單位：負載總量 kWh
+    //   - 顏色閾值：<1000 綠 / 1000-2000 橘 / >2000 紅
+    // ==========================================
+    const heatmapWorkshops = [
+        { key: 'MP',    label: 'MP',    color: COLOR.workshop1 },
+        { key: 'MAG',   label: 'MAG',   color: COLOR.workshop2 },
+        { key: 'LED',   label: 'LED',   color: COLOR.workshop3 }
+    ];
+
+    // 模擬數據生成器（依年份產出穩定但有差異的數值）
+    function seededRand(seed) {
+        // 簡易種子隨機，回傳 0-1
+        let x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
+    }
+    function genHourlyAvg(year, wsKey) {
+        // 24 小時平均負載量 (kWh)，模擬一日的尖峰/谷時形狀
+        const base = { MP: 1400, MAG: 1600, LED: 900 }[wsKey];
+        const yearOffset = (year - 2024) * 50;
+        return Array.from({length: 24}, (_, h) => {
+            // 谷時 0-6: 0.45x, 平 7-9 + 22-23: 0.85x, 峰 10-21: 1.15x（含尖峰 14-15, 20-21 多 0.15）
+            let factor = 0.55;
+            if (h >= 7 && h <= 9) factor = 0.85;
+            else if (h >= 10 && h <= 21) factor = 1.15;
+            else if (h >= 22) factor = 0.80;
+            if (h === 14 || h === 20) factor += 0.18;
+            const noise = (seededRand(year * 100 + h + wsKey.charCodeAt(0)) - 0.5) * 0.2;
+            return Math.round((base + yearOffset) * (factor + noise));
+        });
+    }
+    function genWeeklyAvg(year, wsKey) {
+        // 7 天（週一~週日）整日平均負載量 (kWh)
+        const base = { MP: 1500, MAG: 1700, LED: 950 }[wsKey];
+        const yearOffset = (year - 2024) * 50;
+        // 工作日高、週末低
+        const factors = [1.10, 1.12, 1.15, 1.10, 1.05, 0.65, 0.55]; // 一二三四五六日
+        return factors.map((f, d) => {
+            const noise = (seededRand(year * 10 + d + wsKey.charCodeAt(0)) - 0.5) * 0.15;
+            return Math.round((base + yearOffset) * (f + noise));
+        });
+    }
+
+    function loadClassByKwh(v) {
+        if (v === null || v === undefined || v < 0) return 'idle';
+        if (v < 1000) return 'low';
+        if (v <= 2000) return 'mid';
+        return 'high';
+    }
+
+    function renderHeatmap(year, view) {
+        const heatmap = document.getElementById('heatmap');
+        heatmap.classList.toggle('view-week', view === 'week');
+        heatmap.classList.toggle('view-day', view !== 'week');
+        const cols = view === 'week' ? 7 : 24;
+        const colLabels = view === 'week'
+            ? ['週一', '週二', '週三', '週四', '週五', '週六', '週日']
+            : Array.from({length: 24}, (_, h) => String(h));
+
+        // 使用 grid template 動態欄數
+        const gridStyle = `grid-template-columns: 80px repeat(${cols}, 1fr);`;
+
+        let headerHtml = `<div class="heatmap-row header" style="${gridStyle}"><div class="heatmap-label"></div>`;
+        colLabels.forEach(c => {
+            headerHtml += `<div class="heatmap-hour-label">${c}</div>`;
+        });
+        headerHtml += '</div>';
+
+        let rowsHtml = '';
+        heatmapWorkshops.forEach(w => {
+            const data = view === 'week' ? genWeeklyAvg(year, w.key) : genHourlyAvg(year, w.key);
+            rowsHtml += `<div class="heatmap-row" style="${gridStyle}"><div class="heatmap-label" style="border-left: 3px solid ${w.color}; padding-left: 6px;">${w.label}</div>`;
+            data.forEach((val, i) => {
+                const cls = loadClassByKwh(val);
+                const colName = view === 'week' ? colLabels[i] : `${String(i).padStart(2, '0')}:00`;
+                const tooltip = val < 0 ? '無資料' : `${val.toLocaleString()} kWh`;
+                rowsHtml += `<div class="heatmap-cell ${cls}" title="${w.label} · ${colName} · ${tooltip}"></div>`;
+            });
+            rowsHtml += '</div>';
+        });
+        heatmap.innerHTML = headerHtml + rowsHtml;
+    }
+
+    // 初始渲染 + 篩選器事件綁定
+    let heatmapState = { year: 2026, view: 'day' };
+    renderHeatmap(heatmapState.year, heatmapState.view);
+
+    // Heatmap hover：淡出效果 + 自訂 tooltip
+    const heatmapEl = document.getElementById('heatmap');
+    const hmTip = document.getElementById('heatmap-tooltip');
+
+    heatmapEl.addEventListener('mouseover', e => {
+        const cell = e.target.closest('.heatmap-cell');
+        if (!cell) return;
+        heatmapEl.classList.add('is-hovering');
+        hmTip.textContent = cell.getAttribute('title') || '';
+        hmTip.classList.add('visible');
+    });
+
+    heatmapEl.addEventListener('mousemove', e => {
+        const offset = 14;
+        let x = e.clientX + offset;
+        let y = e.clientY + offset;
+        const tw = hmTip.offsetWidth;
+        const th = hmTip.offsetHeight;
+        if (x + tw > window.innerWidth - 8) x = e.clientX - tw - offset;
+        if (y + th > window.innerHeight - 8) y = e.clientY - th - offset;
+        hmTip.style.left = x + 'px';
+        hmTip.style.top  = y + 'px';
+    });
+
+    heatmapEl.addEventListener('mouseout', e => {
+        const cell = e.target.closest('.heatmap-cell');
+        if (!cell) return;
+        heatmapEl.classList.remove('is-hovering');
+        hmTip.classList.remove('visible');
+    });
+
+    // Dropdown Type2 functions
+    function toggleDD(id) {
+        const wrap = document.getElementById(id);
+        const isOpen = wrap.classList.contains('open');
+        document.querySelectorAll('.iwa-dd2-wrap.open').forEach(w => w.classList.remove('open'));
+        if (!isOpen) wrap.classList.add('open');
+    }
+    function selectDD(id, label, el) {
+        document.getElementById(id + '-val').textContent = label;
+        el.closest('.iwa-dd2-panel').querySelectorAll('.dd2-option').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
+        document.getElementById(id).dataset.value = el.dataset.val;
+        document.getElementById(id).classList.remove('open');
+    }
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.iwa-dd2-wrap')) {
+            document.querySelectorAll('.iwa-dd2-wrap.open').forEach(w => w.classList.remove('open'));
+        }
+    });
+    function onHeatmapYearChange(year) {
+        heatmapState.year = year;
+        renderHeatmap(heatmapState.year, heatmapState.view);
+    }
+    function onPvChange() {
+        const [y, m] = document.getElementById('dd-pv-date').dataset.value.split('-').map(Number);
+        renderPeakValley(y, m);
+        updatePvSnapshot();
+    }
+    document.querySelectorAll('#heatmapViewToggle button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#heatmapViewToggle button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            heatmapState.view = btn.dataset.view;
+            renderHeatmap(heatmapState.year, heatmapState.view);
+        });
+    });
+
+    // ==========================================
+    // 7. 24 小時峰谷負荷（Line）
+    //    年/月篩選 · 5 時段背景帶 · 即時負荷卡
+    // ==========================================
+    const pvHours = Array.from({ length: 24 }, (_, i) => `${i}h`);
+
+    // 5 時段定義（已解決重疊，尖峰優先）
+    // 0-3 谷 / 3-8 深谷 / 8-11 峰 / 11-14 平 / 14-15 尖峰 / 15-17 平 / 17-20 峰 / 20-21 尖峰 / 21-22 峰 / 22-24 平
+    const pvZones = [
+        { start: 0,  end: 3,  type: 'low',     label: '谷',   color: 'rgba(92,199,54,0.16)',   dot: '#5CC736'  },
+        { start: 3,  end: 8,  type: 'deepLow', label: '深谷', color: 'rgba(0,176,255,0.18)',   dot: '#00B0FF'  },
+        { start: 8,  end: 11, type: 'high',    label: '峰',   color: 'rgba(241,222,117,0.18)', dot: '#F1DE75'  },
+        { start: 11, end: 14, type: 'mid',     label: '平',   color: 'rgba(166,255,178,0.15)', dot: '#A6FFB2'  },
+        { start: 14, end: 15, type: 'peak',    label: '尖峰', color: 'rgba(255,45,85,0.20)',   dot: '#FF2D55'  },
+        { start: 15, end: 17, type: 'mid',     label: '平',   color: 'rgba(248,182,45,0.12)',  dot: '#F8B62D'  },
+        { start: 17, end: 20, type: 'high',    label: '峰',   color: 'rgba(241,222,117,0.18)', dot: '#F1DE75'  },
+        { start: 20, end: 21, type: 'peak',    label: '尖峰', color: 'rgba(255,45,85,0.20)',   dot: '#FF2D55'  },
+        { start: 21, end: 22, type: 'high',    label: '峰',   color: 'rgba(241,222,117,0.18)', dot: '#F1DE75'  },
+        { start: 22, end: 24, type: 'mid',     label: '平',   color: 'rgba(248,182,45,0.12)',  dot: '#F8B62D'  }
+    ];
+
+    function getZoneAt(hour) {
+        return pvZones.find(z => hour >= z.start && hour < z.end) || pvZones[pvZones.length - 1];
+    }
+
+    // 依年/月生成 24 小時平均負荷曲線（kW）
+    function genPvData(year, month) {
+        // base 隨季節微調：夏季 (6-9) +、冬季 (12-2) +
+        const seasonFactor = (month >= 6 && month <= 9) ? 1.12
+                           : (month === 12 || month <= 2) ? 1.08
+                           : 1.0;
+        const yearFactor = 1 + (year - 2024) * 0.03;
+        const baseTotal = 4200 * seasonFactor * yearFactor; // 全廠平均 ~4200 kW
+
+        return pvHours.map((_, h) => {
+            const zone = getZoneAt(h);
+            let factor;
+            switch (zone.type) {
+                case 'deepLow': factor = 0.50; break;
+                case 'low':     factor = 0.62; break;
+                case 'mid':     factor = 0.92; break;
+                case 'high':    factor = 1.18; break;
+                case 'peak':    factor = 1.32; break;
+                default:        factor = 1.00;
+            }
+            const noise = (seededRand(year * 1000 + month * 50 + h) - 0.5) * 0.08;
+            return Math.round(baseTotal * (factor + noise));
+        });
+    }
+
+    let pvChart = echarts.init(document.getElementById('peakValleyChart'));
+
+    function buildPvMarkArea() {
+        return pvZones.map(z => [
+            { xAxis: z.start + 'h', itemStyle: { color: z.color } },
+            { xAxis: z.end >= 24 ? '23h' : z.end + 'h' }
+        ]);
+    }
+
+    function renderPeakValley(year, month) {
+        const data = genPvData(year, month);
+        pvChart.setOption({
+            grid: { left: '8%', right: '3%', top: '12%', bottom: '12%' },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(255,255,255,0.04)' } },
+                backgroundColor: 'rgba(33,40,49,0.95)',
+                borderColor: 'rgba(255,255,255,0.50)',
+                borderWidth: 0.5,
+                padding: [10, 14],
+                textStyle: { color: '#fff', fontSize: 12, fontFamily: '"PingFang TC","Microsoft JhengHei",system-ui' },
+                formatter: params => {
+                    const p = params[0];
+                    const zone = getZoneAt(p.dataIndex);
+                    const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${zone.dot};margin-right:6px;vertical-align:middle;"></span>`;
+                    return `${p.axisValue}<br/>負荷：${p.value.toLocaleString()} kW<br/>${dot}${zone.label}`;
+                }
+            },
+            legend: { show: false },
+            xAxis: {
+                type: 'category',
+                data: pvHours,
+                boundaryGap: false,
+                axisLine: { lineStyle: { color: 'rgba(255,255,255,0.10)' } },
+                axisTick: { show: false },
+                axisLabel: { color: COLOR.textMuted, fontSize: 11, interval: 1 },
+                splitLine: { show: false }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'kW',
+                nameLocation: 'end',
+                nameTextStyle: { color: COLOR.textMuted, fontSize: 11, align: 'right', padding: [0, 6, 0, 0] },
+                splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+                axisLabel: { color: COLOR.textMuted, fontSize: 11, formatter: v => v.toLocaleString() }
+            },
+            series: [{
+                name: '24H 平均負荷',
+                type: 'line',
+                data: data,
+                smooth: 0.35,
+                symbol: 'none',
+                lineStyle: { color: COLOR.accent, width: 2.5 },
+                areaStyle: { color: 'rgba(248,182,45,0.10)' },
+                markArea: {
+                    silent: true,
+                    data: buildPvMarkArea()
+                }
+            }]
+        });
+    }
+
+    // 即時負荷卡：取當前小時對應的負荷值
+    function updatePvSnapshot() {
+        // 即時負荷快照目前在 HTML 中以註解保留，所有元素查找皆容錯處理
+        const ddPv = document.getElementById('dd-pv-date');
+        if (!ddPv || !ddPv.dataset || !ddPv.dataset.value) return;
+        const now = new Date();
+        const hour = now.getHours();
+        const [year, month] = ddPv.dataset.value.split('-').map(Number);
+        const data = genPvData(year, month);
+        const liveLoad = data[hour];
+        const zone = getZoneAt(hour);
+
+        const liveValEl = document.getElementById('pvLiveValue');
+        if (liveValEl) liveValEl.innerHTML =
+            liveLoad.toLocaleString() + '<span class="unit">kW</span>';
+
+        const tagEl = document.getElementById('pvLiveTag');
+        if (tagEl) {
+            tagEl.textContent = zone.label + '時段';
+            tagEl.className = 'pv-snapshot-tag ' + zone.type;
+        }
+
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const timeEl = document.getElementById('pvLiveTime');
+        if (timeEl) timeEl.textContent = `${hh}:${mm} 取樣`;
+    }
+
+    // 初始渲染 + 篩選器綁定
+    renderPeakValley(2026, 4);
+    updatePvSnapshot();
+
+
+    // ==========================================
+    // 9. 優先級篩選
+    // ==========================================
+    const filterChips = document.querySelectorAll('.filter-chip');
+    const suggestionCards = document.querySelectorAll('.suggestion-card');
+    filterChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            filterChips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            const filter = chip.dataset.filter;
+            suggestionCards.forEach(card => {
+                if (filter === 'all' || card.dataset.priority === filter) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+        });
+    });
+
+    // ==========================================
+    // 10. 採納建議
+    // ==========================================
+    function adoptSuggestion(btn) {
+        const card = btn.closest('.suggestion-card');
+        card.classList.toggle('adopted');
+        btn.textContent = card.classList.contains('adopted') ? '取消' : '採納';
+    }
+    function showDetail(btn) {
+        const card = btn.closest('.suggestion-card');
+        const title = card.querySelector('.suggestion-title').textContent;
+        alert(`[詳情視窗原型]\n\n建議：${title}\n\n實際系統中將開啟側邊抽屜顯示：\n• 詳細診斷數據（歷史趨勢圖、設備清單）\n• 執行計劃（步驟、責任人、工期）\n• 風險評估（工藝/安全影響）\n• 歷次類似建議成效追蹤`);
+    }
+
+    // ==========================================
+    // 11. BU 年度 EUI 趨勢 + 行業標準對比（Chart.js）
+    // ==========================================
+    // 模擬資料：4 個 BU × 12 個月（kWh/m²·月）
+    // 季節邏輯：6–9 月空調冷卻負荷高（夏季峰）、12–2 月供熱與保溫負荷（冬季次峰）、春秋為谷
+    // 行業標準統一為 260 kWh/m²·月
+    if (typeof Chart !== 'undefined') {
+        Chart.defaults.color = 'rgba(255,255,255,0.70)';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+        Chart.defaults.font.family = '"PingFang TC","Microsoft JhengHei", sans-serif';
+    }
+
+    const BU_COLOR_TEXT_SUB = 'rgba(255,255,255,0.70)';
+    const INDUSTRY_STANDARD = 260;
+    const BU_META = {
+        MP:  { area: 5200, color: '#60a5fa', sector: '精密加工', standard: INDUSTRY_STANDARD },
+        MAG: { area: 6800, color: '#a78bfa', sector: '磁性元件', standard: INDUSTRY_STANDARD },
+        LED: { area: 4500, color: '#34d399', sector: 'LED 組裝', standard: INDUSTRY_STANDARD }
+    };
+    const BU_EUI_DATA = {
+        2024: {
+            MP:  [278, 273, 270, 285, 298, 322, 348, 350, 325, 287, 280, 287],
+            MAG: [314, 308, 312, 325, 343, 368, 395, 392, 360, 328, 320, 318],
+            LED: [225, 222, 220, 228, 243, 263, 288, 285, 260, 233, 224, 230]
+        },
+        2025: {
+            MP:  [270, 266, 264, 278, 292, 318, 343, 345, 320, 282, 275, 280],
+            MAG: [308, 302, 305, 320, 338, 362, 388, 385, 355, 322, 315, 312],
+            LED: [218, 216, 215, 222, 238, 258, 283, 280, 256, 228, 220, 224]
+        },
+        2026: {
+            MP:  [265, 260, 262, 281, 290, 315, 340, 342, 318, 278, 270, 275],
+            MAG: [305, 300, 305, 321, 338, 362, 388, 385, 355, 322, 315, 310],
+            LED: [215, 213, 212, 225, 238, 258, 282, 280, 256, 228, 220, 225]
+        }
+    };
+    const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    const BU_KEYS = ['MP', 'MAG', 'LED'];
+    const BU_DISPLAY_NAME = { MP: 'MP', MAG: 'MAG', LED: 'LED' };
+
+    // 夏季陰影插件（6–9 月）
+    const summerBgPlugin = {
+        id: 'summerBg',
+        beforeDatasetsDraw(chart) {
+            const { ctx, chartArea, scales } = chart;
+            if (!chartArea) return;
+            const x = scales.x;
+            const startX = x.getPixelForValue(5) - (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
+            const endX   = x.getPixelForValue(8) + (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
+            ctx.save();
+            ctx.fillStyle = 'rgba(96,165,250,0.06)';
+            ctx.fillRect(startX, chartArea.top, endX - startX, chartArea.bottom - chartArea.top);
+            ctx.strokeStyle = 'rgba(96,165,250,0.25)';
+            ctx.setLineDash([4, 3]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(startX, chartArea.top); ctx.lineTo(startX, chartArea.bottom);
+            ctx.moveTo(endX, chartArea.top);   ctx.lineTo(endX, chartArea.bottom);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(96,165,250,0.7)';
+            ctx.font = '11px "PingFang TC","Microsoft JhengHei", sans-serif';
+            ctx.fillText('夏季空調負荷期', startX + 6, chartArea.top + 14);
+            ctx.restore();
+        }
+    };
+
+    let buEuiChart = null;
+    function buildBuChartDatasets(year) {
+        const data = BU_EUI_DATA[year];
+        const datasets = [];
+        BU_KEYS.forEach(bu => {
+            datasets.push({
+                label: BU_DISPLAY_NAME[bu] + ' 實際 EUI',
+                data: data[bu],
+                borderColor: BU_META[bu].color,
+                backgroundColor: BU_META[bu].color + '20',
+                tension: 0.35,
+                borderWidth: 2.5,
+                pointRadius: 2,
+                pointHoverRadius: 4,
+                fill: false,
+                _color: BU_META[bu].color,
+                _isStandard: false
+            });
+        });
+        datasets.push({
+            label: '標準 (' + INDUSTRY_STANDARD + ')',
+            data: new Array(12).fill(INDUSTRY_STANDARD),
+            borderColor: '#F8B62D',
+            borderDash: [6, 4],
+            borderWidth: 1.8,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+            _color: '#F8B62D',
+            _isStandard: true
+        });
+        return datasets;
+    }
+
+    function updateBuSummaryCards(year) {
+        const data = BU_EUI_DATA[year];
+        BU_KEYS.forEach(bu => {
+            const arr = data[bu];
+            const avg = arr.reduce((a,b)=>a+b,0) / arr.length;
+            const summerPeak = Math.max(arr[6], arr[7]);
+            const std = BU_META[bu].standard;
+            const gap = ((avg - std) / std) * 100;
+            const id = bu.toLowerCase();
+            const avgEl = document.getElementById(id+'-avg');
+            const sumEl = document.getElementById(id+'-summer');
+            const gapEl = document.getElementById(id+'-gap');
+            if (!avgEl || !sumEl || !gapEl) return;
+            avgEl.innerHTML = avg.toFixed(1) + ' <span class="bu-metric-unit">kWh/m²·月</span>';
+            sumEl.innerHTML = summerPeak.toFixed(0) + ' <span class="bu-metric-unit">kWh/m²·月</span>';
+            const sign = gap >= 0 ? '+' : '';
+            gapEl.innerHTML = sign + gap.toFixed(1) + ' <span class="bu-metric-unit">%</span>';
+            gapEl.classList.remove('gap-pos','gap-neg','gap-flat');
+            if (gap > 2) gapEl.classList.add('gap-pos');
+            else if (gap < -2) gapEl.classList.add('gap-neg');
+            else gapEl.classList.add('gap-flat');
+        });
+    }
+
+    function renderBuEuiTrend(year) {
+        const datasets = buildBuChartDatasets(year);
+        const canvas = document.getElementById('buEuiTrendChart');
+        if (!canvas || typeof Chart === 'undefined') return;
+        if (buEuiChart) {
+            buEuiChart.data.datasets = datasets;
+            buEuiChart.update();
+        } else {
+            buEuiChart = new Chart(canvas, {
+                type: 'line',
+                data: { labels: MONTH_LABELS, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top', align: 'end',
+                            labels: {
+                                usePointStyle: true, padding: 12,
+                                generateLabels: (chart) => {
+                                    const ds = chart.data.datasets;
+                                    return ds.map((d, i) => ({
+                                        text: d.label,
+                                        fillStyle: d._isStandard ? 'transparent' : d._color,
+                                        strokeStyle: d._color,
+                                        lineWidth: 2,
+                                        lineDash: d._isStandard ? [4,3] : [],
+                                        fontColor: d._color,
+                                        hidden: !chart.isDatasetVisible(i),
+                                        datasetIndex: i,
+                                        pointStyle: d._isStandard ? 'line' : 'circle'
+                                    }));
+                                }
+                            },
+                            onClick: (e, legendItem, legend) => {
+                                const i = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                ci.setDatasetVisibility(i, !ci.isDatasetVisible(i));
+                                ci.update();
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(33,40,49,0.95)',
+                            titleColor: '#ffffff', bodyColor: 'rgba(255,255,255,0.85)',
+                            borderColor: 'rgba(255,255,255,0.15)', borderWidth: 1, padding: 10,
+                            callbacks: {
+                                label: c => ' ' + c.dataset.label + ': ' + c.parsed.y.toFixed(1) + ' kWh/m²·月'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: BU_COLOR_TEXT_SUB } },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: BU_COLOR_TEXT_SUB, callback: v => v + ' kWh/m²' },
+                            title: { display: true, text: '單位面積能耗 (kWh/m²·月)', color: BU_COLOR_TEXT_SUB, font: { size: 11 } }
+                        }
+                    }
+                },
+                plugins: [summerBgPlugin]
+            });
+        }
+        updateBuSummaryCards(year);
+    }
+
+    // ==========================================
+    // 12. BU 月度明細 Modal
+    // ==========================================
+    function openBuModal(bu, year) {
+        const meta = BU_META[bu];
+        const arr = BU_EUI_DATA[year] && BU_EUI_DATA[year][bu];
+        if (!meta || !arr) return;
+        document.getElementById('buModalChip').style.background = meta.color;
+        document.getElementById('buModalName').textContent = BU_DISPLAY_NAME[bu];
+        document.getElementById('buModalSector').textContent = meta.sector;
+
+        const avg = arr.reduce((a,b)=>a+b,0) / arr.length;
+        const totalEnergy = arr.reduce((sum, eui) => sum + (eui * meta.area), 0);
+        const gap = ((avg - meta.standard) / meta.standard) * 100;
+        const gapSign = gap >= 0 ? '+' : '';
+        document.getElementById('buModalMeta').innerHTML = `
+            <div class="bu-modal-meta-item">
+                <div class="lbl">使用面積（恆定）</div>
+                <div class="val">${meta.area.toLocaleString()} m²</div>
+            </div>
+            <div class="bu-modal-meta-item">
+                <div class="lbl">${year} 年總用能</div>
+                <div class="val">${Math.round(totalEnergy).toLocaleString()} kWh</div>
+            </div>
+            <div class="bu-modal-meta-item">
+                <div class="lbl">年均 EUI vs 標準 (260)</div>
+                <div class="val" style="color: ${gap > 2 ? 'var(--color-statusHigh)' : (gap < -2 ? 'var(--color-statusNormal)' : 'var(--color-statusWarn)')};">
+                    ${avg.toFixed(1)} kWh/m²·月 (${gapSign}${gap.toFixed(1)}%)
+                </div>
+            </div>
+        `;
+
+        const tbody = document.getElementById('buModalTbody');
+        const summerMonths = new Set([6,7,8,9]);
+        const rows = arr.map((eui, idx) => {
+            const month = idx + 1;
+            const energy = Math.round(eui * meta.area);
+            const gapM = ((eui - meta.standard) / meta.standard) * 100;
+            const gapClass = gapM > 2 ? 'pos' : (gapM < -2 ? 'neg' : '');
+            const rowCls = summerMonths.has(month) ? 'summer-row' : '';
+            const sign = gapM >= 0 ? '+' : '';
+            return `<tr class="${rowCls}">
+                <td>${month} 月${summerMonths.has(month) ? ' <span class="text-muted text-xs">(夏)</span>' : ''}</td>
+                <td>${meta.area.toLocaleString()} <span class="text-muted">m²</span></td>
+                <td>${energy.toLocaleString()} <span class="text-muted">kWh</span></td>
+                <td><strong>${eui.toFixed(1)}</strong> <span class="text-muted text-xs">kWh/m²</span></td>
+                <td class="gap-cell ${gapClass}">${sign}${gapM.toFixed(1)}%</td>
+            </tr>`;
+        }).join('');
+        const yearEui = totalEnergy / (meta.area * 12);
+        const yearGap = ((yearEui - meta.standard) / meta.standard) * 100;
+        const yearGapCls = yearGap > 2 ? 'pos' : (yearGap < -2 ? 'neg' : '');
+        const ySign = yearGap >= 0 ? '+' : '';
+        tbody.innerHTML = rows + `<tr class="total-row">
+            <td>全年合計</td>
+            <td>${meta.area.toLocaleString()} m²</td>
+            <td>${Math.round(totalEnergy).toLocaleString()} kWh</td>
+            <td>${yearEui.toFixed(1)} kWh/m²·月 (年均)</td>
+            <td class="gap-cell ${yearGapCls}">${ySign}${yearGap.toFixed(1)}%</td>
+        </tr>`;
+
+        document.getElementById('buModalOverlay').hidden = false;
+    }
+    function closeBuModal() { document.getElementById('buModalOverlay').hidden = true; }
+
+    function openIndustryRef() {
+        document.getElementById('industryRefBackdrop').hidden = false;
+        document.getElementById('industryRefPopover').hidden = false;
+    }
+    function closeIndustryRef() {
+        document.getElementById('industryRefBackdrop').hidden = true;
+        document.getElementById('industryRefPopover').hidden = true;
+    }
+
+    function currentBuYear() {
+        const dd = document.getElementById('dd-bu-year');
+        const v = dd && dd.dataset && dd.dataset.value;
+        const y = parseInt(v, 10);
+        return Number.isFinite(y) ? y : 2026;
+    }
+    function onBuYearChange(year) {
+        renderBuEuiTrend(year);
+    }
+
+    // 初始化（資料就緒就先畫一次）
+    renderBuEuiTrend(currentBuYear());
+
+    document.querySelectorAll('.bu-summary-card').forEach(card => {
+        const open = () => {
+            const bu = card.getAttribute('data-bu');
+            openBuModal(bu, currentBuYear());
+        };
+        card.addEventListener('click', open);
+        card.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+        });
+    });
+    const _buModalClose = document.getElementById('buModalClose');
+    if (_buModalClose) _buModalClose.addEventListener('click', closeBuModal);
+    const _buModalOverlay = document.getElementById('buModalOverlay');
+    if (_buModalOverlay) _buModalOverlay.addEventListener('click', e => {
+        if (e.target.id === 'buModalOverlay') closeBuModal();
+    });
+    const _industryRefBtn = document.getElementById('industryRefBtn');
+    if (_industryRefBtn) _industryRefBtn.addEventListener('click', openIndustryRef);
+    const _industryRefClose = document.getElementById('industryRefClose');
+    if (_industryRefClose) _industryRefClose.addEventListener('click', closeIndustryRef);
+    const _industryRefBackdrop = document.getElementById('industryRefBackdrop');
+    if (_industryRefBackdrop) _industryRefBackdrop.addEventListener('click', closeIndustryRef);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { closeBuModal(); closeIndustryRef(); }
+    });
+
+</script>
+
+</body>
+</html>

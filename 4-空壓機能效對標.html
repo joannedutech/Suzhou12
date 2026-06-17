@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4 空壓機能效對標 — IWA 數位能碳管理</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root {
+    --color-bgBase:        #212831;
+    --color-bgPanel:       #2C333C;
+    --color-bgHover:       rgba(255,255,255,0.05);
+    --color-bg-menu-lv1:   #283A51;
+    --color-bg-menu-lv2:   #1D2C40;
+    --color-accentPrimary: #F8B62D;
+    --color-accentHover:   #fac84a;
+    --color-indicator:     #00B0FF;
+    --color-textMain:      #ffffff;
+    --color-textSub:       rgba(255,255,255,0.70);
+    --color-textMuted:     rgba(255,255,255,0.50);
+    --color-divider:       rgba(255,255,255,0.10);
+    --color-statusHigh:    #FF2D55;
+    --color-statusWarn:    #F1DE75;
+    --color-statusNormal:  #5CC736;
+    /* 能效等級色（對齊 IWA 設計系統語意） */
+    --color-grade-excellent: #00B0FF;
+    --color-grade-good:      #5CC736;
+    --color-grade-normal:    #F1DE75;
+    --color-grade-fail:      #FF2D55;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: var(--color-bgBase);
+    color: var(--color-textSub);
+    font-family: "PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    font-size: 16px; overflow: hidden;
+}
+a { text-decoration: none; color: inherit; }
+
+/* ── Typography ── */
+.type-title-xl  { font-size: 28px; font-weight: 500; letter-spacing: 0.06em; }
+.type-title-l   { font-size: 24px; font-weight: 500; }
+.type-body-m    { font-size: 16px; font-weight: 400; }
+.type-label-l   { font-size: 14px; font-weight: 400; }
+.type-label-m   { font-size: 13px; font-weight: 400; }
+.type-label-s   { font-size: 12px; font-weight: 500; }
+.type-caption-m { font-size: 12px; font-weight: 400; }
+.text-white { color: var(--color-textMain); }
+.text-sub   { color: var(--color-textSub); }
+.text-muted { color: var(--color-textMuted); }
+
+/* ── Layout ── */
+.layout-wrapper { display: flex; height: 100vh; overflow: hidden; }
+.main-area      { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Sidebar ── */
+.iwa-frontend-sidebar {
+    width: 220px; background: var(--color-bg-menu-lv1);
+    box-shadow: 0px 4px 4px rgba(0,0,0,0.25);
+    transition: width 300ms cubic-bezier(0.4,0,0.2,1);
+    position: relative; z-index: 100;
+    display: flex; flex-direction: column; gap: 20px; padding-top: 17px;
+}
+.brand-area { padding: 0 10px; display: flex; align-items: center; gap: 10px; }
+.brand-logo-text { display: flex; align-items: center; gap: 10px; flex: 1; }
+.brand-logo { width: 26px; height: 26px; border-radius: 5.91px; border: 0.59px solid white; background: white; flex-shrink: 0; }
+.brand-text { color: white; font-size: 16px; font-weight: 400; white-space: nowrap; }
+.pin-btn {
+    background: rgba(15,26,42,0.80); border: none; cursor: pointer;
+    width: 26px; height: 26px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: background 150ms, color 150ms;
+}
+.pin-btn.active { color: #00B0FF; }
+.pin-btn:not(.active) { color: #a9a9a9; }
+.pin-btn:hover { background: rgba(15,26,42,1); color: #9adfff; }
+.pin-btn.active .pin-svg--pin   { display: block; }
+.pin-btn.active .pin-svg--unpin { display: none; }
+.pin-btn:not(.active) .pin-svg--pin   { display: none; }
+.pin-btn:not(.active) .pin-svg--unpin { display: block; }
+.menu-list { list-style: none; flex: 1; overflow-y: auto; padding-right: 5px; }
+.menu-item {
+    height: 42px; padding: 10px 10px 10px 25px;
+    display: flex; align-items: center; cursor: pointer;
+    position: relative; color: white;
+    font-size: 16px; font-weight: 400; border-radius: 5px;
+    transition: background 150ms;
+}
+.menu-item .icon-wrap { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 5px; }
+.menu-item .text { flex: 1; white-space: nowrap; }
+.menu-item::before {
+    content: ''; position: absolute; left: 0; top: 5px; bottom: 5px;
+    width: 3px; background: var(--color-accentPrimary);
+    border-radius: 0 4px 3px 0; opacity: 0; transition: opacity 150ms;
+}
+.menu-item.active { color: var(--color-accentPrimary); }
+.menu-item.active::before { opacity: 1; }
+.submenu-panel {
+    position: absolute; left: 100%; top: 0;
+    width: 220px; height: 100vh;
+    background: var(--color-bg-menu-lv2);
+    transform: translateX(-20px); opacity: 0; pointer-events: none;
+    transition: transform 250ms cubic-bezier(0.4,0,0.2,1), opacity 250ms;
+    z-index: 99; display: flex; flex-direction: column; padding-top: 17px; gap: 8px;
+}
+.submenu-panel.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+.submenu-header { height: 26px; padding: 0 10px; display: flex; align-items: center; justify-content: flex-end; }
+.submenu-panel .menu-item { padding-left: 25px; }
+.submenu-panel .menu-item:hover { background: rgba(0,176,255,0.10); }
+.submenu-panel .menu-item.active { color: var(--color-accentPrimary); background: rgba(0,176,255,0.20); }
+.submenu-panel .menu-item.active::before { opacity: 1; }
+
+/* ── Header ── */
+.iwa-frontend-header {
+    height: 60px; background: var(--color-bgBase);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; border-bottom: 1px solid var(--color-divider);
+}
+.breadcrumb { color: var(--color-textSub); font-size: 14px; }
+.breadcrumb .sep { margin: 0 6px; opacity: 0.5; }
+.breadcrumb .current { color: var(--color-textMain); }
+.header-controls { display: flex; align-items: center; gap: 16px; }
+.header-icon { color: var(--color-textSub); cursor: pointer; font-size: 16px; transition: color 150ms; }
+.header-icon:hover { color: #fff; }
+.header-divider { height: 24px; border-left: 1px solid rgba(255,255,255,0.15); margin: 0 8px; }
+.brand-time { display: flex; align-items: center; gap: 12px; }
+.time-text { display: flex; flex-direction: column; align-items: flex-end; }
+
+/* ── Content ── */
+.content-wrapper {
+    flex: 1; padding: 16px 24px 24px;
+    overflow-y: auto; display: flex; flex-direction: column; gap: 20px;
+}
+.content-wrapper::-webkit-scrollbar { width: 6px; }
+.content-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+
+/* ── Card ── */
+.iwa-frontend-card {
+    background: var(--color-bgPanel); border-radius: 10px; padding: 20px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.50); position: relative;
+}
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.card-title  { color: var(--color-textMain); font-size: 16px; font-weight: 400; }
+
+/* ── Page Title ── */
+.page-title-bar { display: flex; align-items: flex-start; justify-content: space-between; }
+.page-title { color: var(--color-textMain); font-size: 20px; font-weight: 600; }
+.page-subtitle { color: var(--color-textMuted); font-size: 14px; font-weight: 400; margin-top: 4px; }  /* Label/L */
+.standard-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 12px;
+    background: rgba(0,176,255,0.12); color: var(--color-indicator);
+    font-size: 12px; font-weight: 500;
+}
+
+/* ── Module Section Header ── */
+.module-section-header {
+    display: flex; align-items: center; gap: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.module-num {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: transparent; border: 1px solid rgba(241,222,117,0.50);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--color-statusWarn); font-size: 16px; font-weight: 600; flex-shrink: 0;
+}
+.module-title { color: var(--color-textMain); font-size: 28px; font-weight: 500; letter-spacing: 0.06em; }
+.module-desc  { color: var(--color-textMuted); font-size: 14px; font-weight: 400; margin-left: 2px; }
+
+/* ── Sidebar Mini 收合 ── */
+.iwa-frontend-sidebar.mini { width: 64px; padding-top: 17px; gap: 16px; }
+.iwa-frontend-sidebar.mini .brand-text,
+.iwa-frontend-sidebar.mini .menu-item .text,
+.iwa-frontend-sidebar.mini .menu-item .arrow { display: none !important; }
+.iwa-frontend-sidebar.mini .menu-item { justify-content: center; padding: 0; }
+.iwa-frontend-sidebar.mini .menu-item .icon-wrap { margin-right: 0; }
+.iwa-frontend-sidebar.mini .brand-area { justify-content: center; padding: 0; }
+.iwa-frontend-sidebar.mini .brand-logo-text { flex: 0 0 auto; }
+.iwa-frontend-sidebar.mini .pin-btn { display: none; }
+
+/* ── Output Settings Popover ── */
+.output-settings-btn {
+    background: transparent; border: none; cursor: pointer;
+    color: var(--color-textMuted); display: flex; align-items: center;
+    padding: 2px; transition: color 150ms;
+}
+.output-settings-btn:hover { color: var(--color-accentPrimary); }
+.output-settings-popover {
+    display: none; position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;
+    background: var(--color-bgBase); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; padding: 12px 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    align-items: center; gap: 10px; white-space: nowrap;
+}
+.output-settings-popover.open { display: flex; }
+.output-settings-popover .lbl { font-size: 14px; font-weight: 400; color: var(--color-textSub); }
+
+
+/* ── Merged KPI Card ── */
+.merged-kpi { display: flex; gap: 0; flex: 1; }
+.merged-left {
+    flex: 0 0 48%; display: flex; flex-direction: column;
+    justify-content: space-between; padding-right: 20px;
+    border-right: 1px solid var(--color-divider);
+}
+.merged-right {
+    flex: 1; display: flex; flex-direction: column;
+    justify-content: space-between; padding-left: 20px;
+}
+/* ── Grade Blocks（等級分佈） ── */
+.grade-blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1; }
+.grade-block { border-radius: 8px; border: 1px solid; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.grade-block-count { font-size: 28px; font-weight: 600; line-height: 1; }
+.grade-block-label { font-size: 11px; font-weight: 400; color: var(--color-textMuted); }
+
+/* ── Hero KPI Grid ── */
+.hero-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; }
+.hero-grid > .iwa-frontend-card { height: 260px; }
+
+/* KPI 1 合規 */
+.kpi-compliance { display: flex; align-items: center; gap: 16px; flex: 1; }
+.kpi-compliance .donut-wrap { width: 130px; height: 130px; flex-shrink: 0; }
+.legend-row { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: 8px; }  /* Label/L */
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.legend-label { flex: 1; color: var(--color-textSub); }
+.legend-count { color: var(--color-textMain); font-weight: 600; }
+
+/* KPI 2 系統綜合 */
+.kpi-system { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 4px 0; }
+.kpi-big-number { color: var(--color-textMain); font-size: 40px; font-weight: 600; line-height: 1; }  /* Display/L */
+.kpi-unit { color: var(--color-textSub); font-size: 14px; margin-top: 6px; }
+.kpi-baseline { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-divider); width: 100%; display: flex; justify-content: space-between; font-size: 14px; font-weight: 400; }  /* Label/L */
+.kpi-baseline .label { color: var(--color-textMuted); }
+.kpi-baseline .value { color: var(--color-textSub); font-weight: 500; }
+
+/* KPI 3 出氣量 */
+.kpi-output-card {
+    background: linear-gradient(135deg, rgba(0,176,255,0.08), rgba(0,176,255,0.02));
+    border: 1px solid rgba(0,176,255,0.18);
+}
+.output-comparison { display: flex; flex-direction: column; gap: 0; flex: 1; justify-content: center; }
+/* ── Output Cell（色點狀態列） ── */
+.output-cell {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.output-cell:last-child { border-bottom: none; }
+.output-cell-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.output-cell-name { font-size: 14px; font-weight: 400; color: var(--color-textSub); flex: 1; white-space: nowrap; }
+.output-cell-val  { font-size: 14px; font-weight: 400; color: var(--color-textMain); white-space: nowrap; }
+.output-cell-delta { font-size: 14px; font-weight: 400; text-align: right; white-space: nowrap; min-width: 60px; }
+.output-cell.ok   .output-cell-delta { color: var(--color-statusNormal); }
+.output-cell.crit .output-cell-delta { color: var(--color-statusHigh); }
+.threshold-input {
+    width: 52px; height: 24px; background: var(--color-bgBase);
+    border: 1px solid rgba(255,255,255,0.20); border-radius: 4px;
+    padding: 0 6px; color: var(--color-textMain); font-size: 13px; text-align: center;
+}
+.threshold-input:focus { outline: none; border-color: var(--color-accentPrimary); }
+.pill-input {
+    background: transparent; border: 1px solid rgba(255,255,255,0.30);
+    border-radius: 999px; padding: 4px 14px;
+    color: var(--color-textMain); font-size: 14px; font-weight: 400;
+    text-align: center; width: 72px; outline: none;
+    font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+}
+.pill-input:focus { border-color: var(--color-accentPrimary); }
+.pill-input::-webkit-inner-spin-button,
+.pill-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.threshold-control { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-textMuted); }
+
+/* ── Comparison Panel ── */
+.comparison-chart { width: 100%; height: 300px; }
+.threshold-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--color-textSub); align-items: center; }
+.threshold-legend .item { display: flex; align-items: center; gap: 6px; }
+.threshold-legend .swatch { width: 8px; height: 8px; border-radius: 50%; }
+.custom-pill {
+    display: none; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px;
+    background: rgba(248,182,45,0.12); border: 1px solid rgba(248,182,45,0.35);
+    color: var(--color-accentPrimary); font-size: 12px; font-weight: 600;
+}
+.custom-pill.visible { display: inline-flex; }
+
+/* ── Machine Cards ── */
+.machine-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 14px; }
+.machine-card {
+    background: var(--color-bgPanel); border-radius: 10px; padding: 16px;
+    cursor: pointer; border: 1px solid transparent;
+    transition: border-color 150ms, box-shadow 150ms;
+    box-shadow: 0 0 12px rgba(0,0,0,0.3);
+}
+.machine-card:hover { border-color: var(--color-accentPrimary); box-shadow: 0 0 20px rgba(248,182,45,0.15); }
+.machine-card.priority { border-color: rgba(255,45,85,0.30); background: linear-gradient(135deg, rgba(255,45,85,0.06), rgba(44,51,60,1)); }
+.machine-card.priority:hover { border-color: var(--color-accentPrimary); box-shadow: 0 0 20px rgba(248,182,45,0.15); }
+.machine-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.machine-name { font-size: 16px; font-weight: 400; color: var(--color-textMain); display: flex; align-items: center; gap: 6px; }  /* Body/M */
+.status-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 400; white-space: nowrap;
+}
+.status-chip.info   { background: rgba(0,176,255,0.15);    color: #00B0FF; }
+.status-chip.normal { background: rgba(92,199,54,0.15);    color: #5CC736; }
+.status-chip.warn   { background: rgba(241,222,117,0.15);  color: #F1DE75; }
+.status-chip.alarm  { background: rgba(255,45,85,0.15);    color: #FF2D55; }
+.machine-spec { display: flex; gap: 8px; margin-top: 3px; }
+
+/* Mini Bar (代替賽車盤) */
+.mini-bar-wrap { margin: 20px 0; }
+.mini-bar-label-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.mini-bar-val { font-size: 30px; font-weight: 600; color: var(--color-textMain); line-height: 1; margin-bottom: 20px; }  /* Display/S */
+.mini-bar-unit { font-size: 12px; color: var(--color-textMuted); margin-left: 4px; font-weight: 400; }
+.mini-bar-track {
+    position: relative; height: 10px;
+    background: rgba(255,255,255,0.06); border-radius: 5px; overflow: visible;
+    margin-bottom: 4px;
+}
+.mini-bar-zone { position: absolute; top: 0; height: 100%; }
+.mini-bar-marker {
+    position: absolute; top: 50%; transform: translate(-50%,-50%);
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--color-bgPanel); z-index: 2;
+    box-shadow: 0 0 6px rgba(0,0,0,0.5);
+}
+.mini-bar-ticks { display: flex; justify-content: space-between; }
+.mini-bar-tick  { font-size: 11px; color: var(--color-textMuted); }
+
+.machine-metrics { border-top: 1px solid rgba(255,255,255,0.07); padding-top: 8px; margin-top: 8px; display: flex; align-items: center; gap: 0; }
+.spec-item { font-size: 12px; font-weight: 400; color: var(--color-textMuted); display: flex; align-items: center; justify-content: center; gap: 4px; width: 33.33%; }
+.metric-sep { width: 1px; height: 12px; background: rgba(255,255,255,0.12); flex-shrink: 0; }
+
+/* ── Pill Buttons ── */
+.btn-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 999px; border: none; cursor: pointer;
+    font-family: "PingFang TC","Microsoft JhengHei",system-ui;
+    white-space: nowrap; font-size: 16px; font-weight: 400;
+    transition: background 150ms, color 150ms, border-color 150ms;
+}
+.btn-pill.btn-secondary {
+    background: transparent; border: 1px solid rgba(255,255,255,0.70);
+    color: var(--color-textMain); padding: 5px 16px; font-size: 13px;
+}
+.btn-pill.btn-secondary:hover { background: #ffffff; color: var(--color-bgBase); border-color: #fff; }
+.btn-pill.btn-primary {
+    background: transparent; border: 1px solid var(--color-accentPrimary);
+    border-radius: 30px; color: var(--color-accentPrimary);
+    padding: 5px 20px; width: 100px; justify-content: center; font-size: 16px;
+}
+.btn-pill.btn-primary:hover { background: var(--color-accentPrimary); color: var(--color-bgBase); }
+
+/* ── Modals ── */
+.modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.60);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 250ms;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+
+/* 單機詳情 - 寬版 */
+.detail-modal {
+    background: var(--color-bgPanel); border-radius: 10px;
+    width: min(900px, calc(100vw - 48px));
+    height: min(600px, calc(100vh - 48px));
+    border: 1px solid var(--color-accentPrimary);
+    box-shadow: 0 0 24px rgba(0,0,0,0.6);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+.detail-modal-hd {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px 28px; border-bottom: 1px solid var(--color-divider); flex-shrink: 0; gap: 6px;
+}
+.detail-modal-title { font-size: 24px; font-weight: 500; color: var(--color-textMain); display: flex; align-items: center; gap: 10px; justify-content: center; }
+.detail-modal-subtitle { font-size: 14px; font-weight: 400; color: var(--color-textMuted); text-align: center; }
+.detail-modal-body { flex: 1; overflow-y: auto; padding: 20px 30px; }
+.detail-modal-footer { display: flex; justify-content: center; padding: 14px 28px 20px; flex-shrink: 0; }
+.detail-section-title { font-size: 16px; font-weight: 400; color: var(--color-textMain); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+.detail-chart { width: 100%; height: 380px; }
+.time-tabs { display: flex; gap: 6px; }
+.time-tab {
+    padding: 3px 10px; border-radius: 4px; font-size: 12px;
+    background: transparent; border: 1px solid var(--color-divider);
+    color: var(--color-textSub); cursor: pointer; transition: all 150ms;
+}
+.time-tab.active { background: var(--color-indicator); border-color: var(--color-indicator); color: #000; }
+
+/* 閾值設定 Modal */
+.threshold-modal {
+    background: var(--color-bgPanel); border-radius: 10px;
+    width: 900px; height: 600px;
+    border: 1px solid var(--color-accentPrimary);
+    box-shadow: 0 0 12px rgba(0,0,0,0.5);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+.threshold-modal-hd {
+    height: 72px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-shrink: 0;
+    border-bottom: 1px solid var(--color-divider);
+}
+.threshold-modal-title { font-size: 20px; font-weight: 500; color: var(--color-textMain); }  /* 字級1 Title/M */
+.threshold-modal-body { padding: 24px 40px; overflow-y: auto; flex: 1; }
+.threshold-modal-footer { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px 30px 24px; flex-shrink: 0; }
+
+.settings-section { margin-bottom: 24px; }
+.settings-section-label {
+    color: var(--color-textMain); font-size: 16px; font-weight: 400;  /* 字級2 Body/M */
+    padding: 20px 0; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;
+}
+.settings-section-label .current-value { color: var(--color-accentPrimary); font-size: 14px; font-weight: 600; }
+.offset-slider {
+    width: 100%; height: 6px; -webkit-appearance: none; appearance: none;
+    background: rgba(255,255,255,0.10); border-radius: 3px; outline: none; cursor: pointer;
+}
+.offset-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px;
+    background: var(--color-accentPrimary); border-radius: 50%; cursor: pointer;
+    position: relative; top: -6px;
+}
+.offset-slider::-moz-range-thumb {
+    width: 18px; height: 18px; background: var(--color-accentPrimary);
+    border-radius: 50%; cursor: pointer; border: none; position: relative; top: -6px;
+}
+.slider-labels { display: flex; justify-content: space-between; font-size: 14px; color: var(--color-textMuted); margin-top: 6px; }
+.preview-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
+.preview-table th { background: rgba(255,255,255,0.05); padding: 8px 10px; color: var(--color-textMuted); font-weight: 400; border-bottom: 1px solid var(--color-divider); text-align: center; font-size: 14px; }
+.preview-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: var(--color-textSub); font-size: 14px; }
+.preview-table .gb-col     { color: var(--color-textMuted); }
+.preview-table .custom-col { color: var(--color-accentPrimary); font-weight: 600; }
+
+/* tag chip */
+.panel-tag {
+    font-size: 12px; padding: 2px 8px; border-radius: 4px;
+    background: rgba(255,255,255,0.05); color: var(--color-textMuted);
+}
+
+
+        /* Threshold settings button (Joann original style) */
+        .threshold-settings-btn {
+            background: transparent;
+            border: 1px solid var(--color-divider);
+            color: var(--color-textMuted);
+            width: 28px; height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: all 150ms;
+            flex-shrink: 0;
+        }
+        .threshold-settings-btn:hover {
+            border-color: var(--color-accentPrimary);
+            color: var(--color-accentPrimary);
+        }
+        /* Fullscreen */
+body.is-fullscreen .iwa-frontend-sidebar { transform: translateX(-100%); width: 0; opacity: 0; pointer-events: none; }
+body.is-fullscreen .iwa-frontend-header  { transform: translateY(-100%); height: 0; opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="layout-wrapper">
+
+<!-- ── Sidebar ── -->
+<nav class="iwa-frontend-sidebar mini" id="mainSidebar">
+        <div class="brand-area">
+            <div class="brand-logo-text">
+                <div class="brand-logo">SU</div>
+                <span class="type-body-m text-white brand-text">群電蘇州廠</span>
+            </div>
+            <button class="pin-btn active" id="sidebarPinBtn">
+                <svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/>
+                </svg>
+                <svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/>
+                </svg>
+            </button>
+        </div>
+
+
+        <ul class="menu-list inner-scroll-container">
+            <a href="index.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="dashboard">
+                    <div class="icon-wrap"><i class="fa-solid fa-chart-pie"></i></div>
+                    <span class="text">全廠總覽</span>
+                </li>
+            </a>
+            <a href="energy-monitor.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-energy">
+                    <div class="icon-wrap"><i class="fa-solid fa-bolt"></i></div>
+                    <span class="text">能源智慧監測</span>
+                </li>
+            </a>
+            <a href="efficiency-opt.html" style="text-decoration: none;">
+                <li class="menu-item active" data-target="panel-efficiency">
+                    <div class="icon-wrap"><i class="fa-solid fa-leaf"></i></div>
+                    <span class="text">能效診斷與優化</span>
+                </li>
+            </a>
+            <a href="carbon-mgmt.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-carbon">
+                    <div class="icon-wrap"><i class="fa-solid fa-cloud"></i></div>
+                    <span class="text">碳排放管理與核算</span>
+                </li>
+            </a>
+            <a href="supply-chain.html" style="text-decoration: none;">
+                <li class="menu-item" data-target="panel-supply">
+                    <div class="icon-wrap"><i class="fa-solid fa-link"></i></div>
+                    <span class="text">價值鏈與資產營運</span>
+                </li>
+            </a>
+        </ul>
+
+        <!-- 能源智慧監測 次選單 -->
+        <div class="submenu-panel" id="panel-energy" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="energy-query.html" style="text-decoration: none;"><li class="menu-item"><span class="text">① 能耗查詢</span></li></a>
+                <a href="energy-intensity.html" style="text-decoration: none;"><li class="menu-item"><span class="text">② 能源消費量與強度計算</span></li></a>
+                <a href="energy-flow.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑤ 能流分析</span></li></a>
+            </ul>
+        </div>
+        <!-- 能效診斷與優化 次選單 -->
+        <div class="submenu-panel" id="panel-efficiency" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn active"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="efficiency-analysis.html" style="text-decoration: none;"><li class="menu-item"><span class="text">③ 消費分析與策略推薦</span></li></a>
+                <a href="efficiency-benchmark.html" style="text-decoration: none;"><li class="menu-item active"><span class="text">④ 能效對標</span></li></a>
+                <a href="efficiency-balance.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑥ 能效平衡與優化</span></li></a>
+            </ul>
+        </div>
+        <!-- 碳排放管理與核算 次選單 -->
+        <div class="submenu-panel" id="panel-carbon" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="carbon-budget.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑦ 用能與碳排放預算管理</span></li></a>
+                <a href="carbon-accounting.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑧ 碳排放核算</span></li></a>
+                <a href="product-footprint.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑨ 碳足跡核算</span></li></a>
+            </ul>
+        </div>
+        <!-- 價值鏈與資產營運 次選單 -->
+        <div class="submenu-panel" id="panel-supply" data-pinned="false">
+            <div class="submenu-header">
+                <button class="pin-btn"><svg class="pin-svg pin-svg--pin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M19.448 4.352c0.131 0.242 0.263 0.486 0.394 0.736-0.006 0.005-0.014 0.012-0.023 0.019-0.026 0.022-0.061 0.052-0.098 0.080-1.222 0.911-2.137 1.527-3.064 2.151-0.87 0.585-1.749 1.177-2.901 2.025-0.316 0.233-0.395 0.462-0.195 0.775 0.066 0.102 0.131 0.206 0.196 0.309 0.259 0.41 0.519 0.822 0.82 1.198 1.574 1.96 3.346 3.733 5.265 5.355 0.613 0.519 1.285 0.974 1.962 1.406 0.445 0.285 0.549 0.225 0.858-0.186 0.861-1.152 1.436-2.026 2.011-2.9 0.576-0.876 1.152-1.752 2.015-2.905 0.053-0.072 0.11-0.14 0.162-0.205 0.025-0.031 0.049-0.060 0.072-0.089 0.199 0.112 0.393 0.227 0.585 0.341 0.442 0.262 0.873 0.518 1.33 0.716 0.606 0.264 1.255 0.485 1.906 0.572 0.879 0.119 1.389-0.44 1.225-1.315-0.119-0.637-0.322-1.276-0.601-1.861-0.867-1.822-2.128-3.374-3.495-4.838-1.736-1.858-3.625-3.535-5.848-4.799-0.779-0.443-1.585-0.827-2.494-0.926-0.846-0.091-1.37 0.356-1.3 1.199 0.040 0.496 0.16 1.011 0.363 1.466 0.254 0.567 0.55 1.115 0.855 1.677zM0.729 31.76c2.831-2.259 5.662-4.519 8.529-6.808h0.001c0.054 0.048 0.106 0.093 0.158 0.138 0.091 0.079 0.177 0.154 0.263 0.231 1.393 1.236 2.856 2.379 4.46 3.336 1.103 0.658 2.234 1.255 3.527 1.46 0.7 0.111 1.294-0.040 1.795-0.601 2.108-2.362 2.914-5.126 2.643-8.233-0.019-0.207-0.052-0.412-0.085-0.621-0.016-0.099-0.032-0.198-0.046-0.299-0.916 0.189-1.613-0.23-2.263-0.687-3.006-2.109-5.512-4.718-7.654-7.677-0.419-0.581-0.659-1.226-0.491-1.988-3.257-0.504-6.17 0.127-8.788 2.125-1.055 0.807-1.274 1.735-0.869 2.908 0.016 0.047 0.030 0.094 0.044 0.141 0.017 0.057 0.034 0.113 0.053 0.168 0.589 1.623 1.506 3.064 2.548 4.426 0.548 0.715 1.125 1.409 1.705 2.107 0.265 0.318 0.53 0.638 0.794 0.96-0.015 0.019-0.031 0.041-0.048 0.064-0.044 0.059-0.095 0.128-0.149 0.195l-6.1 7.532c-0.062 0.077-0.125 0.154-0.187 0.231-0.142 0.176-0.284 0.352-0.429 0.526-0.135 0.163-0.217 0.335-0.036 0.509 0.182 0.175 0.354 0.081 0.512-0.054 0.027-0.023 0.054-0.045 0.082-0.067 0.010-0.008 0.020-0.016 0.030-0.024z"/></svg><svg class="pin-svg pin-svg--unpin" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M28.184 5.999c0 0-4.853-5.572-8.998-5.999 0 0-0.808 0-0.808 0.641-0.416 1.713 1.46 4.498 1.46 4.498l-6.259 4.928c0 0-1.044 0.641-1.044 0.858s1.876 3.212 3.963 5.142l0.253 0.234c2.016 1.862 4.143 3.827 4.545 3.622 0.416-0.214 5.632-7.712 5.632-7.712s2.504 1.927 4.591 1.499c2.087-0.428-3.339-7.712-3.339-7.712l0.002 0.003zM26.513 9.639l-5.632 7.712c0 0-5.215-3.856-5.632-5.999l7.302-5.783-1.876-2.998c0 0 2.92 1.072 5.007 3.429s3.547 5.142 3.547 5.142l-2.717-1.502zM18.17 28.279c-2.295 1.072-14.813-10.711-14.186-14.353 0 0 1.626-1.145 3.53-1.693l-1.574-1.53c-1.74 0.708-3.835 1.858-3.835 3.222 0 1.84 1.712 4.465 2.593 5.817l0.119 0.182c0.342 0.527 1.21 1.522 2.114 2.512-0.751 0.957-6.911 8.832-6.911 9.148 0 0.071-0.006 0.132-0.012 0.184-0.020 0.196-0.027 0.264 0.359 0.215 0.441-0.056 7.461-6.005 8.814-7.155 0.268 0.28 0.434 0.451 0.434 0.451 0.625 0.641 7.094 5.783 8.97 5.142 1.686-0.578 2.697-2.535 3.188-4.325l-1.643-1.598c-0.201 1.456-0.707 3.194-1.961 3.78zM20.674 20.353c1.044 0.428 1.46 0.214 1.46 0.214s0.045 1.107 0.017 2.349l6.35 6.173-1.148 1.245-25.56-24.85 1.148-1.245 5.822 5.663c1.376-0.099 2.937 0.168 2.937 0.168s-0.416 0.644 0.835 2.357c1.252 1.713 2.504 3.156 3.651 4.47s3.443 3.029 4.487 3.457z"/></svg></button>
+            </div>
+            <ul class="menu-list">
+                <a href="supply-chain-mgmt.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑩ 供應鏈碳管理</span></li></a>
+                <a href="carbon-audit.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑪ 碳核查支撐</span></li></a>
+                <a href="carbon-assets.html" style="text-decoration: none;"><li class="menu-item"><span class="text">⑫ 碳資產管理</span></li></a>
+            </ul>
+        </div>
+    </nav>
+
+<!-- ── Main ── -->
+<main class="main-area">
+    <header class="iwa-frontend-header">
+        <div class="breadcrumb">
+            數位能碳管理中心<span class="sep">/</span>能效診斷與優化<span class="sep">/</span><span class="current">空壓機能效對標</span>
+        </div>
+        <div class="header-controls">
+            <i class="fa-solid fa-moon header-icon"></i>
+            <i class="fa-solid fa-expand header-icon" id="btn-fullscreen"></i>
+            <i class="fa-regular fa-bell header-icon"></i>
+            <i class="fa-solid fa-border-all header-icon"></i>
+            <div style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <i class="fa-regular fa-user header-icon"></i>
+                <span class="type-label-m">Admin User</span>
+            </div>
+            <div class="header-divider"></div>
+            <div class="brand-time">
+                <div class="brand-logo" style="width:24px;height:24px;font-size:10px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#333;">IWA</div>
+                <div class="time-text">
+                    <span class="type-label-m text-white" style="font-weight:600;">IWA</span>
+                    <span class="type-caption-m" id="realtime-clock"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="content-wrapper">
+
+        <!-- 標題列 -->
+        <div class="module-section-header" style="margin-bottom:4px;">
+            <div class="module-num">4</div>
+            <span class="module-title">空壓機能效對標</span>
+            <span class="module-desc">五台螺桿式空壓機 × 即時氣電比 × GB19153 三級能效標準</span>
+            <div class="standard-pill" style="margin-left:auto;">
+                <!-- <i class="fa-solid fa-certificate"></i> -->
+                GB19153-2019 依據《容積式空氣壓縮機能效限定值及能效等級》
+            </div>
+        </div>
+
+        <!-- Hero KPI -->
+        <div class="hero-grid">
+            <!-- KPI 1+2 合併：系統能效總覽 -->
+            <div class="iwa-frontend-card" style="display:flex;flex-direction:column;">
+                <div class="card-header">
+                    <span class="card-title">系統能效總覽</span>
+                    <span class="panel-tag">5 台機台 · 流量加權</span>
+                </div>
+                <div class="merged-kpi">
+                    <!-- 左：系統綜合氣電比 -->
+                    <div class="merged-left">
+                        <div class="type-label-l text-muted" style="margin-bottom:6px;">系統綜合氣電比</div>
+                        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:12px;">
+                            <span class="kpi-big-number" id="systemSpecificPower">--</span>
+                            <span style="font-size:14px;font-weight:400;color:var(--color-textSub);">kW/(m³/min)</span>
+                        </div>
+                        <div class="kpi-baseline" style="margin-top:0;">
+                            <span class="label">GB 三級基準（加權）</span>
+                            <span class="value" id="systemBaseline">--</span>
+                        </div>
+                        <div class="kpi-baseline" style="border-top:none;padding-top:4px;">
+                            <span class="label">vs 基準</span>
+                            <span class="value" id="systemDeviation">--</span>
+                        </div>
+                    </div>
+                    <!-- 右：等級分佈圓餅圖 -->
+                    <div class="merged-right">
+                        <div class="type-label-l text-muted" style="margin-bottom:6px;">等級分佈</div>
+                        <div id="compliancePieChart" style="flex:1;width:100%;min-height:0;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI 3 出氣量衰減 -->
+            <div class="iwa-frontend-card" style="display:flex;flex-direction:column;position:relative;">
+                <div class="card-header">
+                    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+                        <span class="card-title">出氣量衰減 vs 出廠標準</span>
+                        <span class="panel-tag" id="output-overall-tag">--</span>
+                    </div>
+                    <div style="position:relative;flex-shrink:0;">
+                    <button class="btn-pill btn-secondary" onclick="toggleOutputSettings()" title="異常閾值設定" style="padding:5px 10px;width:auto;">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip_os)"><path d="M10.9091 0.454529C12.0038 0.454529 12.8909 1.34167 12.8909 2.43635L12.8891 3.13362L13.314 2.6432C14.0435 1.90916 15.2069 1.8685 15.9847 2.52541L16.0814 2.61378L17.3547 3.85736C17.7319 4.22751 17.9443 4.73378 17.9453 5.25363C17.9572 5.79393 17.7415 6.31541 17.3578 6.68503L16.8882 7.15362L17.6489 7.15504C18.6632 7.20339 19.4702 8.00427 19.5405 9.00167L19.5455 9.14544V10.9091C19.5455 12.0038 18.6582 12.8918 17.5636 12.8918L16.8691 12.89L17.3295 13.3503C18.0633 14.0796 18.1043 15.2427 17.4493 16.0204L17.3402 16.1399L16.1442 17.3531C15.777 17.7309 15.2735 17.9442 14.7393 17.9454C14.2151 17.9384 13.7151 17.7283 13.3487 17.3641L12.8445 16.8691L12.8449 17.6489C12.7966 18.6632 11.9957 19.4702 10.9983 19.5405L10.8545 19.5454H9.13636C8.04169 19.5454 7.15454 18.6583 7.15454 17.5636L7.15454 16.8491L6.68603 17.3568C5.95673 18.0905 4.79365 18.1315 4.01591 17.4766L3.89643 17.3674L3.87844 17.348L2.6463 16.1436C2.3088 15.8145 2.1028 15.3768 2.06203 14.9111L2.05454 14.7353C2.05572 14.2033 2.26627 13.6932 2.64244 13.3147L3.11273 12.8445L2.43392 12.8454C1.3861 12.8398 0.531807 12.0258 0.459502 10.9962L0.454544 10.8545V9.13634C0.454544 8.04167 1.34169 7.15453 2.43636 7.15453L3.15 7.15453L2.64346 6.68626C1.90854 5.95696 1.86817 4.79336 2.47669 4.07476L2.57816 3.96512C2.60889 3.92558 2.62119 3.90977 2.62812 3.90172L3.85584 2.64684C4.22298 2.26904 4.72649 2.05571 5.25255 2.05453C5.7887 2.05219 6.30381 2.26332 6.68505 2.64221L7.15363 3.11089L7.15455 2.4339C7.16018 1.38669 7.97441 0.531845 9.0038 0.45949L9.14545 0.454529H10.9091ZM10.9091 1.36362H9.14545C8.55019 1.36362 8.06683 1.84422 8.06363 2.43635V3.36362C8.06363 3.70076 7.84518 3.93692 7.62092 4.01715C7.3685 4.18167 7.04283 4.18167 6.78971 4.01815L6.71495 3.95776L6.04322 3.28603C5.83427 3.07837 5.55116 2.96233 5.25556 2.96362C4.97337 2.96425 4.7042 3.07829 4.50677 3.28145L3.28505 4.53049L3.1964 4.63068C2.86706 5.04904 2.89582 5.65597 3.27229 6.02994L3.99956 6.70266L4.07376 6.79132C4.20712 6.9997 4.23615 7.25703 4.13427 7.53703L4.11665 7.5683C4.01328 7.8447 3.75961 8.03731 3.42727 8.06362H2.43636C1.84376 8.06362 1.36363 8.54375 1.36363 9.13634V10.8545C1.36363 11.4501 1.84368 11.9332 2.43636 11.9363H3.36363C3.70077 11.9363 3.93694 12.1548 4.01817 12.3806C4.18135 12.6332 4.18135 12.9563 4.01915 13.2096L3.95756 13.2862L3.28604 13.9568C3.08004 14.164 2.96428 14.4445 2.96363 14.7374C2.963 15.022 3.07731 15.2941 3.28147 15.4932L4.5305 16.7149L4.62945 16.8039C5.01623 17.1074 5.56355 17.106 5.93968 16.8083L6.02995 16.7277L6.70268 16.0004L6.79134 15.9262C7.05434 15.7579 7.39111 15.7579 7.65411 15.9262L7.60909 15.9018L7.65723 15.9232C7.8284 16.0138 7.95827 16.1677 8.02236 16.3636L8.04882 16.4649L8.06363 16.5727V17.5636C8.06363 18.1562 8.54376 18.6363 9.13636 18.6363H10.855C11.433 18.637 11.9093 18.1832 11.9364 17.6273V16.6363C11.9364 16.2992 12.1548 16.063 12.383 15.9803C12.6347 15.8199 12.9562 15.8199 13.2786 16.0359L13.984 16.7139C14.1885 16.9171 14.4631 17.0325 14.7444 17.0363C15.0266 17.0357 15.2958 16.9217 15.4943 16.7174L16.6877 15.5058L16.7766 15.4069C17.1054 14.9878 17.0755 14.3796 16.6877 13.9941L15.9877 13.2941L15.9283 13.2209C15.7638 12.9685 15.7638 12.6428 15.9273 12.3897L15.8991 12.4391L15.9234 12.3879C16.0296 12.1875 16.2222 12.0439 16.4655 11.9968L16.5727 11.9827H17.5636C18.156 11.9827 18.6364 11.5019 18.6364 10.9091V9.14493C18.637 8.56695 18.1832 8.09064 17.6273 8.06362H16.6364C16.2992 8.06362 16.063 7.84516 15.9818 7.61937C15.8185 7.36651 15.8185 7.04255 15.9818 6.78968L16.0422 6.71493L16.721 6.03628C16.9282 5.83664 17.0428 5.55967 17.0364 5.26464C17.0357 4.97873 16.9212 4.7056 16.7185 4.50675L15.4773 3.29271L15.3694 3.19644C14.9834 2.89264 14.437 2.89323 14.0687 3.18224L13.9806 3.2605L13.3533 3.98777L13.2555 4.07284C12.993 4.24221 12.6546 4.24221 12.3913 4.07374L12.4336 4.09635L12.3889 4.0772C12.1883 3.97164 12.045 3.77965 11.9966 3.53516L11.9818 3.42726V2.43635C11.9818 1.84375 11.5017 1.36362 10.9091 1.36362ZM10 6.36353L10.1815 6.36798C12.1055 6.46255 13.6364 8.05244 13.6364 9.99989C13.6364 12.0088 12.0086 13.6363 10 13.6363C7.99139 13.6363 6.36363 12.0088 6.36363 9.99989C6.36363 8.05244 7.89451 6.46255 9.81851 6.36798L10 6.36353ZM10 7.27262L9.83975 7.27725C8.4081 7.3602 7.27272 8.54745 7.27272 9.99989C7.27272 11.5067 8.49343 12.7272 10 12.7272C11.5066 12.7272 12.7273 11.5067 12.7273 9.99989C12.7273 8.54745 11.5919 7.3602 10.1602 7.27725L10 7.27262Z" fill="currentColor"/></g><defs><clipPath id="clip_os"><rect width="20" height="20" fill="white"/></clipPath></defs></svg>
+                    </button>
+                    <div class="output-settings-popover" id="outputSettingsPopover">
+                        <span class="lbl">異常閾值</span>
+                        <input type="number" id="decayThreshold" class="pill-input" value="6" step="0.5" min="0" max="50" oninput="renderOutputComparison()">
+                        <span class="lbl">%</span>
+                    </div>
+                    </div>
+                </div>
+                <div class="output-comparison" id="outputComparison"></div>
+
+            </div>
+        </div>
+
+        <!-- Layer 2 比較圖 -->
+        <div class="iwa-frontend-card" style="padding-top:24px;padding-bottom:28px;">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">各機氣電比 vs GB19153 三級閾值</div>
+                    <div class="page-subtitle" style="margin-top:4px;">背景色帶代表能效等級分區，柱狀圖代表各機即時氣電比</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="custom-pill" id="customPill"><i class="fa-solid fa-triangle-exclamation"></i> 自訂閾值 <span id="customPillValue">+0%</span></span>
+                    <button class="btn-pill btn-secondary" id="thresholdSettingsBtn" onclick="openThresholdSettings()" style="padding:5px 10px;width:auto;">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><g clip-path="url(#clip_s4c)"><path d="M10.9091 0.454529C12.0038 0.454529 12.8909 1.34167 12.8909 2.43635L12.8891 3.13362L13.314 2.6432C14.0435 1.90916 15.2069 1.8685 15.9847 2.52541L16.0814 2.61378L17.3547 3.85736C17.7319 4.22751 17.9443 4.73378 17.9453 5.25363C17.9572 5.79393 17.7415 6.31541 17.3578 6.68503L16.8882 7.15362L17.6489 7.15504C18.6632 7.20339 19.4702 8.00427 19.5405 9.00167L19.5455 9.14544V10.9091C19.5455 12.0038 18.6582 12.8918 17.5636 12.8918L16.8691 12.89L17.3295 13.3503C18.0633 14.0796 18.1043 15.2427 17.4493 16.0204L17.3402 16.1399L16.1442 17.3531C15.777 17.7309 15.2735 17.9442 14.7393 17.9454C14.2151 17.9384 13.7151 17.7283 13.3487 17.3641L12.8445 16.8691L12.8449 17.6489C12.7966 18.6632 11.9957 19.4702 10.9983 19.5405L10.8545 19.5454H9.13636C8.04169 19.5454 7.15454 18.6583 7.15454 17.5636L7.15454 16.8491L6.68603 17.3568C5.95673 18.0905 4.79365 18.1315 4.01591 17.4766L3.89643 17.3674L3.87844 17.348L2.6463 16.1436C2.3088 15.8145 2.1028 15.3768 2.06203 14.9111L2.05454 14.7353C2.05572 14.2033 2.26627 13.6932 2.64244 13.3147L3.11273 12.8445L2.43392 12.8454C1.3861 12.8398 0.531807 12.0258 0.459502 10.9962L0.454544 10.8545V9.13634C0.454544 8.04167 1.34169 7.15453 2.43636 7.15453L3.15 7.15453L2.64346 6.68626C1.90854 5.95696 1.86817 4.79336 2.47669 4.07476L2.57816 3.96512C2.60889 3.92558 2.62119 3.90977 2.62812 3.90172L3.85584 2.64684C4.22298 2.26904 4.72649 2.05571 5.25255 2.05453C5.7887 2.05219 6.30381 2.26332 6.68505 2.64221L7.15363 3.11089L7.15455 2.4339C7.16018 1.38669 7.97441 0.531845 9.0038 0.45949L9.14545 0.454529H10.9091ZM10.9091 1.36362H9.14545C8.55019 1.36362 8.06683 1.84422 8.06363 2.43635V3.36362C8.06363 3.70076 7.84518 3.93692 7.62092 4.01715C7.3685 4.18167 7.04283 4.18167 6.78971 4.01815L6.71495 3.95776L6.04322 3.28603C5.83427 3.07837 5.55116 2.96233 5.25556 2.96362C4.97337 2.96425 4.7042 3.07829 4.50677 3.28145L3.28505 4.53049L3.1964 4.63068C2.86706 5.04904 2.89582 5.65597 3.27229 6.02994L3.99956 6.70266L4.07376 6.79132C4.20712 6.9997 4.23615 7.25703 4.13427 7.53703L4.11665 7.5683C4.01328 7.8447 3.75961 8.03731 3.42727 8.06362H2.43636C1.84376 8.06362 1.36363 8.54375 1.36363 9.13634V10.8545C1.36363 11.4501 1.84368 11.9332 2.43636 11.9363H3.36363C3.70077 11.9363 3.93694 12.1548 4.01817 12.3806C4.18135 12.6332 4.18135 12.9563 4.01915 13.2096L3.95756 13.2862L3.28604 13.9568C3.08004 14.164 2.96428 14.4445 2.96363 14.7374C2.963 15.022 3.07731 15.2941 3.28147 15.4932L4.5305 16.7149L4.62945 16.8039C5.01623 17.1074 5.56355 17.106 5.93968 16.8083L6.02995 16.7277L6.70268 16.0004L6.79134 15.9262C7.05434 15.7579 7.39111 15.7579 7.65411 15.9262L7.60909 15.9018L7.65723 15.9232C7.8284 16.0138 7.95827 16.1677 8.02236 16.3636L8.04882 16.4649L8.06363 16.5727V17.5636C8.06363 18.1562 8.54376 18.6363 9.13636 18.6363H10.855C11.433 18.637 11.9093 18.1832 11.9364 17.6273V16.6363C11.9364 16.2992 12.1548 16.063 12.383 15.9803C12.6347 15.8199 12.9562 15.8199 13.2786 16.0359L13.984 16.7139C14.1885 16.9171 14.4631 17.0325 14.7444 17.0363C15.0266 17.0357 15.2958 16.9217 15.4943 16.7174L16.6877 15.5058L16.7766 15.4069C17.1054 14.9878 17.0755 14.3796 16.6877 13.9941L15.9877 13.2941L15.9283 13.2209C15.7638 12.9685 15.7638 12.6428 15.9273 12.3897L15.8991 12.4391L15.9234 12.3879C16.0296 12.1875 16.2222 12.0439 16.4655 11.9968L16.5727 11.9827H17.5636C18.156 11.9827 18.6364 11.5019 18.6364 10.9091V9.14493C18.637 8.56695 18.1832 8.09064 17.6273 8.06362H16.6364C16.2992 8.06362 16.063 7.84516 15.9818 7.61937C15.8185 7.36651 15.8185 7.04255 15.9818 6.78968L16.0422 6.71493L16.721 6.03628C16.9282 5.83664 17.0428 5.55967 17.0364 5.26464C17.0357 4.97873 16.9212 4.7056 16.7185 4.50675L15.4773 3.29271L15.3694 3.19644C14.9834 2.89264 14.437 2.89323 14.0687 3.18224L13.9806 3.2605L13.3533 3.98777L13.2555 4.07284C12.993 4.24221 12.6546 4.24221 12.3913 4.07374L12.4336 4.09635L12.3889 4.0772C12.1883 3.97164 12.045 3.77965 11.9966 3.53516L11.9818 3.42726V2.43635C11.9818 1.84375 11.5017 1.36362 10.9091 1.36362ZM10 6.36353L10.1815 6.36798C12.1055 6.46255 13.6364 8.05244 13.6364 9.99989C13.6364 12.0088 12.0086 13.6363 10 13.6363C7.99139 13.6363 6.36363 12.0088 6.36363 9.99989C6.36363 8.05244 7.89451 6.46255 9.81851 6.36798L10 6.36353ZM10 7.27262L9.83975 7.27725C8.4081 7.3602 7.27272 8.54745 7.27272 9.99989C7.27272 11.5067 8.49343 12.7272 10 12.7272C11.5066 12.7272 12.7273 11.5067 12.7273 9.99989C12.7273 8.54745 11.5919 7.3602 10.1602 7.27725L10 7.27262Z" fill="currentColor"/></g><defs><clipPath id="clip_s4c"><rect width="20" height="20" fill="white"/></clipPath></defs></svg>
+                    </button>
+                </div>
+            </div>
+            <!-- 圖例 置中疊在圖表上方 -->
+            <div style="position:relative;">
+                <div class="threshold-legend" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:2;pointer-events:none;white-space:nowrap;flex-wrap:nowrap;gap:14px;">
+                    <div class="item"><div class="swatch" style="background:rgba(0,176,255,0.90);"></div>優良（一級）</div>
+                    <div class="item"><div class="swatch" style="background:rgba(92,199,54,0.90);"></div>良好（二級）</div>
+                    <div class="item"><div class="swatch" style="background:rgba(241,222,117,0.90);"></div>普通（三級）</div>
+                    <div class="item"><div class="swatch" style="background:rgba(255,45,85,0.90);"></div>不合格</div>
+                </div>
+                <div class="comparison-chart" id="comparisonChart"></div>
+            </div>
+        </div>
+
+        <!-- Layer 3 機台卡片 -->
+        <div class="machine-grid" id="machineGrid"></div>
+
+    </div>
+</main>
+</div>
+
+<!-- 單機詳情 Modal -->
+<div class="modal-overlay" id="detailOverlay" onclick="if(event.target===this)closeModal()">
+    <div class="detail-modal">
+        <div class="detail-modal-hd">
+            <div class="detail-modal-title" id="modalTitle">機台詳情</div>
+            <div class="detail-modal-subtitle" id="modalSubtitle"></div>
+        </div>
+        <div class="detail-modal-body">
+            <div class="detail-section-title">
+                <span>氣電比趨勢（過去 24 小時）</span>
+            </div>
+            <div class="detail-chart" id="detailTrend"></div>
+        </div>
+        <div class="detail-modal-footer">
+            <button class="btn-pill btn-primary" onclick="closeModal()">關閉</button>
+        </div>
+    </div>
+</div>
+
+<!-- GB 閾值進階設定 Modal -->
+<div class="modal-overlay" id="thresholdOverlay" onclick="if(event.target===this)closeThresholdSettings()">
+    <div class="threshold-modal">
+        <div class="threshold-modal-hd">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="flex-shrink:0;"><g clip-path="url(#clip_th2)"><path d="M10.9091 0.454529C12.0038 0.454529 12.8909 1.34167 12.8909 2.43635L12.8891 3.13362L13.314 2.6432C14.0435 1.90916 15.2069 1.8685 15.9847 2.52541L16.0814 2.61378L17.3547 3.85736C17.7319 4.22751 17.9443 4.73378 17.9453 5.25363C17.9572 5.79393 17.7415 6.31541 17.3578 6.68503L16.8882 7.15362L17.6489 7.15504C18.6632 7.20339 19.4702 8.00427 19.5405 9.00167L19.5455 9.14544V10.9091C19.5455 12.0038 18.6582 12.8918 17.5636 12.8918L16.8691 12.89L17.3295 13.3503C18.0633 14.0796 18.1043 15.2427 17.4493 16.0204L17.3402 16.1399L16.1442 17.3531C15.777 17.7309 15.2735 17.9442 14.7393 17.9454C14.2151 17.9384 13.7151 17.7283 13.3487 17.3641L12.8445 16.8691L12.8449 17.6489C12.7966 18.6632 11.9957 19.4702 10.9983 19.5405L10.8545 19.5454H9.13636C8.04169 19.5454 7.15454 18.6583 7.15454 17.5636L7.15454 16.8491L6.68603 17.3568C5.95673 18.0905 4.79365 18.1315 4.01591 17.4766L3.89643 17.3674L3.87844 17.348L2.6463 16.1436C2.3088 15.8145 2.1028 15.3768 2.06203 14.9111L2.05454 14.7353C2.05572 14.2033 2.26627 13.6932 2.64244 13.3147L3.11273 12.8445L2.43392 12.8454C1.3861 12.8398 0.531807 12.0258 0.459502 10.9962L0.454544 10.8545V9.13634C0.454544 8.04167 1.34169 7.15453 2.43636 7.15453L3.15 7.15453L2.64346 6.68626C1.90854 5.95696 1.86817 4.79336 2.47669 4.07476L2.57816 3.96512C2.60889 3.92558 2.62119 3.90977 2.62812 3.90172L3.85584 2.64684C4.22298 2.26904 4.72649 2.05571 5.25255 2.05453C5.7887 2.05219 6.30381 2.26332 6.68505 2.64221L7.15363 3.11089L7.15455 2.4339C7.16018 1.38669 7.97441 0.531845 9.0038 0.45949L9.14545 0.454529H10.9091ZM10.9091 1.36362H9.14545C8.55019 1.36362 8.06683 1.84422 8.06363 2.43635V3.36362C8.06363 3.70076 7.84518 3.93692 7.62092 4.01715C7.3685 4.18167 7.04283 4.18167 6.78971 4.01815L6.71495 3.95776L6.04322 3.28603C5.83427 3.07837 5.55116 2.96233 5.25556 2.96362C4.97337 2.96425 4.7042 3.07829 4.50677 3.28145L3.28505 4.53049L3.1964 4.63068C2.86706 5.04904 2.89582 5.65597 3.27229 6.02994L3.99956 6.70266L4.07376 6.79132C4.20712 6.9997 4.23615 7.25703 4.13427 7.53703L4.11665 7.5683C4.01328 7.8447 3.75961 8.03731 3.42727 8.06362H2.43636C1.84376 8.06362 1.36363 8.54375 1.36363 9.13634V10.8545C1.36363 11.4501 1.84368 11.9332 2.43636 11.9363H3.36363C3.70077 11.9363 3.93694 12.1548 4.01817 12.3806C4.18135 12.6332 4.18135 12.9563 4.01915 13.2096L3.95756 13.2862L3.28604 13.9568C3.08004 14.164 2.96428 14.4445 2.96363 14.7374C2.963 15.022 3.07731 15.2941 3.28147 15.4932L4.5305 16.7149L4.62945 16.8039C5.01623 17.1074 5.56355 17.106 5.93968 16.8083L6.02995 16.7277L6.70268 16.0004L6.79134 15.9262C7.05434 15.7579 7.39111 15.7579 7.65411 15.9262L7.60909 15.9018L7.65723 15.9232C7.8284 16.0138 7.95827 16.1677 8.02236 16.3636L8.04882 16.4649L8.06363 16.5727V17.5636C8.06363 18.1562 8.54376 18.6363 9.13636 18.6363H10.855C11.433 18.637 11.9093 18.1832 11.9364 17.6273V16.6363C11.9364 16.2992 12.1548 16.063 12.383 15.9803C12.6347 15.8199 12.9562 15.8199 13.2786 16.0359L13.984 16.7139C14.1885 16.9171 14.4631 17.0325 14.7444 17.0363C15.0266 17.0357 15.2958 16.9217 15.4943 16.7174L16.6877 15.5058L16.7766 15.4069C17.1054 14.9878 17.0755 14.3796 16.6877 13.9941L15.9877 13.2941L15.9283 13.2209C15.7638 12.9685 15.7638 12.6428 15.9273 12.3897L15.8991 12.4391L15.9234 12.3879C16.0296 12.1875 16.2222 12.0439 16.4655 11.9968L16.5727 11.9827H17.5636C18.156 11.9827 18.6364 11.5019 18.6364 10.9091V9.14493C18.637 8.56695 18.1832 8.09064 17.6273 8.06362H16.6364C16.2992 8.06362 16.063 7.84516 15.9818 7.61937C15.8185 7.36651 15.8185 7.04255 15.9818 6.78968L16.0422 6.71493L16.721 6.03628C16.9282 5.83664 17.0428 5.55967 17.0364 5.26464C17.0357 4.97873 16.9212 4.7056 16.7185 4.50675L15.4773 3.29271L15.3694 3.19644C14.9834 2.89264 14.437 2.89323 14.0687 3.18224L13.9806 3.2605L13.3533 3.98777L13.2555 4.07284C12.993 4.24221 12.6546 4.24221 12.3913 4.07374L12.4336 4.09635L12.3889 4.0772C12.1883 3.97164 12.045 3.77965 11.9966 3.53516L11.9818 3.42726V2.43635C11.9818 1.84375 11.5017 1.36362 10.9091 1.36362ZM10 6.36353L10.1815 6.36798C12.1055 6.46255 13.6364 8.05244 13.6364 9.99989C13.6364 12.0088 12.0086 13.6363 10 13.6363C7.99139 13.6363 6.36363 12.0088 6.36363 9.99989C6.36363 8.05244 7.89451 6.46255 9.81851 6.36798L10 6.36353ZM10 7.27262L9.83975 7.27725C8.4081 7.3602 7.27272 8.54745 7.27272 9.99989C7.27272 11.5067 8.49343 12.7272 10 12.7272C11.5066 12.7272 12.7273 11.5067 12.7273 9.99989C12.7273 8.54745 11.5919 7.3602 10.1602 7.27725L10 7.27262Z" fill="white"/></g><defs><clipPath id="clip_th2"><rect width="20" height="20" fill="white"/></clipPath></defs></svg>
+            <span class="threshold-modal-title">GB 三級閾值進階設定</span>
+        </div>
+        <div class="threshold-modal-body">
+            <div class="settings-section">
+                <div class="settings-section-label">
+                    <div>
+                        <span>閾值寬限</span>
+                        <span style="margin-left:12px;font-size:12px;color:var(--color-textMuted);">正值放寬閾值，負值收緊閾值（廠內較高目標）</span>
+                    </div>
+                    <span class="current-value" id="offsetValueDisplay">+0%</span>
+                </div>
+                <input type="range" id="offsetSlider" class="offset-slider" min="-20" max="30" step="1" value="0">
+                <div class="slider-labels"><span>-20%</span><span>0%（國標）</span><span>+30%</span></div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-section-label"><span>即時預覽（以各機規格分組）</span></div>
+                <table class="preview-table" id="previewTable"></table>
+            </div>
+        </div>
+        <div class="threshold-modal-footer">
+            <button class="btn-pill btn-primary" onclick="closeThresholdSettings()">取消</button>
+            <button class="btn-pill btn-primary" onclick="resetThresholdOffset()" style="width:auto;padding:5px 20px;">還原預設</button>
+            <button class="btn-pill btn-primary" onclick="applyThresholdOffset()">套用</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── GB19153 閾值表 ──
+const GB_TABLE = {
+    '22_0.7':[6.4,7.0,7.7],'22_0.8':[7.0,7.6,8.5],
+    '75_0.7':[5.9,6.4,7.0],'75_0.8':[6.3,6.8,7.5],'75_1.0':[7.0,7.6,8.4],
+    '250_0.7':[5.5,6.0,6.6],'250_0.8':[5.9,6.4,7.1],'250_1.0':[6.6,7.2,8.0]
+};
+let THRESHOLD_OFFSET_PCT = 0;
+
+function getRawGBThresholds(kw,mpa){
+    const v = GB_TABLE[`${kw}_${mpa}`];
+    return v ? {excellent:v[0],good:v[1],normal:v[2]} : {excellent:6.4,good:7.0,normal:7.7};
+}
+function getGBThresholds(kw,mpa){
+    const r = getRawGBThresholds(kw,mpa), f = 1+THRESHOLD_OFFSET_PCT/100;
+    return {excellent:+(r.excellent*f).toFixed(2),good:+(r.good*f).toFixed(2),normal:+(r.normal*f).toFixed(2)};
+}
+
+// ── 機台資料 ──
+const machines = [
+    {id:1,name:'空壓機_1',specificPower:5.8,flowRate:2508,currentOutput:41.8,nominalOutput:43.2,loadRate:87,utilization:89,ratedPower:250,ratedPressure:0.8,type:'噴油螺桿'},
+    {id:2,name:'空壓機_2',specificPower:7.5,flowRate:2310,currentOutput:38.5,nominalOutput:43.2,loadRate:92,utilization:95,ratedPower:250,ratedPressure:0.8,type:'噴油螺桿'},
+    {id:3,name:'空壓機_3',specificPower:6.6,flowRate:2490,currentOutput:41.5,nominalOutput:42.5,loadRate:80,utilization:88,ratedPower:250,ratedPressure:0.8,type:'噴油螺桿（變頻）'},
+    {id:4,name:'空壓機_4',specificPower:6.5,flowRate:750,currentOutput:12.5,nominalOutput:12.8,loadRate:70,utilization:75,ratedPower:75,ratedPressure:0.8,type:'噴油螺桿'},
+    {id:5,name:'空壓機_5',specificPower:7.7,flowRate:660,currentOutput:11.0,nominalOutput:12.8,loadRate:65,utilization:70,ratedPower:75,ratedPressure:0.8,type:'噴油螺桿'}
+];
+
+function gradeOf(m){
+    const t=getGBThresholds(m.ratedPower,m.ratedPressure), sp=m.specificPower;
+    if(sp<=t.excellent) return {key:'excellent',label:'優良',  color:'#00B0FF',chip:'info',  thresholds:t};
+    if(sp<=t.good)      return {key:'good',     label:'良好',  color:'#5CC736',chip:'normal',thresholds:t};
+    if(sp<=t.normal)    return {key:'normal',   label:'普通',  color:'#F1DE75',chip:'warn',  thresholds:t};
+    return                     {key:'fail',     label:'不合格',color:'#FF2D55',chip:'alarm', thresholds:t};
+}
+
+const allCharts = [];
+
+// ── 出氣量閾值 popover ──
+function toggleOutputSettings(){
+    const pop = document.getElementById('outputSettingsPopover');
+    pop.classList.toggle('open');
+}
+function applyOutputThreshold(){
+    document.getElementById('outputSettingsPopover').classList.remove('open');
+    renderOutputComparison();
+}
+document.addEventListener('click', e => {
+    if (!e.target.closest('.btn-pill[onclick*=toggleOutputSettings]') && !e.target.closest('#outputSettingsPopover')) {
+        const pop = document.getElementById('outputSettingsPopover');
+        if (pop) pop.classList.remove('open');
+    }
+});
+
+// ── 等級分佈圓餅圖 ──
+function renderComplianceChart(){
+    const cnt={excellent:0,good:0,normal:0,fail:0};
+    machines.forEach(m=>cnt[gradeOf(m).key]++);
+    let c=echarts.getInstanceByDom(document.getElementById('compliancePieChart'));
+    if(!c) c=echarts.init(document.getElementById('compliancePieChart'));
+    c.setOption({
+        tooltip:{
+            trigger:'item',
+            backgroundColor:'rgba(33,40,49,0.95)',
+            borderColor:'rgba(255,255,255,0.50)',
+            borderWidth:0.5,
+            textStyle:{color:'#fff',fontSize:12},
+            formatter:'{b}: {c} 台'
+        },
+        legend:{
+            orient:'vertical', right:0, top:'middle',
+            textStyle:{color:'rgba(255,255,255,0.70)',fontSize:11},
+            itemWidth:8, itemHeight:8, icon:'circle',
+            data:['優良（一級）','良好（二級）','普通（三級）','不合格']
+        },
+        series:[{
+            type:'pie',
+            radius:['42%','65%'],
+            center:['38%','52%'],
+            data:[
+                {name:'優良（一級）',value:cnt.excellent,itemStyle:{color:'#00B0FF'}},
+                {name:'良好（二級）',value:cnt.good,     itemStyle:{color:'#5CC736'}},
+                {name:'普通（三級）',value:cnt.normal,   itemStyle:{color:'#F1DE75'}},
+                {name:'不合格',      value:cnt.fail,     itemStyle:{color:'#FF2D55'}}
+            ],
+            label:{
+                show:true,
+                fontSize:11,
+                color:'rgba(255,255,255,0.70)',
+                formatter:'{c} 台'
+            },
+            labelLine:{
+                show:true,
+                length:6, length2:8,
+                lineStyle:{color:'rgba(255,255,255,0.30)'}
+            },
+            emphasis:{itemStyle:{shadowBlur:8,shadowColor:'rgba(0,0,0,0.4)'}}
+        }]
+    });
+    if(!allCharts.includes(c)) allCharts.push(c);
+}
+
+// ── 系統綜合 KPI ──
+function renderSystemKPI(){
+    const totalFlow=machines.reduce((s,m)=>s+m.flowRate,0);
+    const totalPower=machines.reduce((s,m)=>s+m.specificPower*(m.flowRate/60),0);
+    const sysSP=totalPower/(totalFlow/60);
+    const sysBaseline=machines.reduce((s,m)=>{
+        const t=getGBThresholds(m.ratedPower,m.ratedPressure);
+        return s+t.normal*m.flowRate;
+    },0)/totalFlow;
+    const devPct=(sysBaseline-sysSP)/sysBaseline*100;
+    document.getElementById('systemSpecificPower').textContent=sysSP.toFixed(2);
+    document.getElementById('systemBaseline').textContent=`${sysBaseline.toFixed(2)} kW/(m³/min)`;
+    const el=document.getElementById('systemDeviation');
+    el.textContent=devPct>0?`優於 ${devPct.toFixed(1)}%`:`超出 ${Math.abs(devPct).toFixed(1)}%`;
+    el.style.color=devPct>0?'#5CC736':'#FF2D55';
+}
+
+// ── 出氣量比對 ──
+function renderOutputComparison(){
+    const container=document.getElementById('outputComparison');
+    const threshold=parseFloat(document.getElementById('decayThreshold').value)||6;
+    const totalNominal=machines.reduce((s,m)=>s+m.nominalOutput,0);
+    const totalCurrent=machines.reduce((s,m)=>s+m.currentOutput,0);
+    const overallDecay=((totalNominal-totalCurrent)/totalNominal*100);
+    const abnormalCount=machines.filter(m=>(m.nominalOutput-m.currentOutput)/m.nominalOutput*100>=threshold).length;
+    const tag=document.getElementById('output-overall-tag');
+    tag.style.color=abnormalCount>0?'#FF2D55':'#5CC736';
+    tag.style.background=abnormalCount>0?'rgba(255,45,85,0.12)':'rgba(92,199,54,0.12)';
+    tag.textContent=abnormalCount>0?`${abnormalCount} 台異常（總衰減 ${overallDecay.toFixed(1)}%）`:`全機正常（衰減 ${overallDecay.toFixed(1)}%）`;
+    container.innerHTML=machines.map(m=>{
+        const decay=((m.nominalOutput-m.currentOutput)/m.nominalOutput*100);
+        const isAbnormal=decay>=threshold, cls=isAbnormal?'crit':'ok';
+        const dotColor=isAbnormal?'var(--color-statusHigh)':'var(--color-statusNormal)';
+        const dotGlow=isAbnormal?'box-shadow:0 0 6px rgba(255,45,85,0.7);':'';
+        return `<div class="output-cell ${cls}">
+            <div class="output-cell-dot" style="background:${dotColor};${dotGlow}"></div>
+            <div class="output-cell-name">${m.name}</div>
+            <div class="output-cell-val">${m.currentOutput}<span style="font-size:14px;font-weight:400;color:var(--color-textMuted);"> / ${m.nominalOutput} m³/min</span></div>
+            <div class="output-cell-delta">-${decay.toFixed(1)}%</div>
+        </div>`;
+    }).join('');
+}
+
+// ── 比較 Bar Chart ──
+function renderComparisonChart(){
+    let c=echarts.getInstanceByDom(document.getElementById('comparisonChart'));
+    if(!c) c=echarts.init(document.getElementById('comparisonChart'));
+    const Y_MIN=4, Y_MAX=9;
+    const chartTextColor='rgba(255,255,255,0.70)';
+    const chartGridColor='rgba(255,255,255,0.05)';
+    // Joann 原版計算：bandExcellent 用完整值讓 ECharts 從 0 堆起，min:4 只裁切顯示區域
+    const bandExcellent=machines.map(m=>getGBThresholds(m.ratedPower,m.ratedPressure).excellent);
+    const bandGood=machines.map(m=>{const t=getGBThresholds(m.ratedPower,m.ratedPressure);return t.good-t.excellent;});
+    const bandNormal=machines.map(m=>{const t=getGBThresholds(m.ratedPower,m.ratedPressure);return t.normal-t.good;});
+    const bandFail=machines.map(m=>{const t=getGBThresholds(m.ratedPower,m.ratedPressure);return Y_MAX-t.normal;});
+    c.setOption({
+        tooltip:{
+            trigger:'axis',
+            axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,0.04)'}},
+            backgroundColor:'rgba(33,40,49,0.95)',
+            borderColor:'rgba(255,255,255,0.50)',
+            borderWidth:0.5,
+            textStyle:{color:'#fff',fontSize:12},
+            formatter:function(params){
+                const m=machines[params[0].dataIndex], g=gradeOf(m), t=g.thresholds;
+                return `<b>${m.name}</b>（${m.ratedPower}kW · ${m.ratedPressure}MPa）<br/>
+                        氣電比: <b style="color:${g.color}">${m.specificPower}</b> kW/(m³/min)<br/>
+                        等級: <span style="color:${g.color}">${g.label}</span><br/>
+                        <span style="color:#abbbc7;">GB 閾值：一級 ≤${t.excellent}　二級 ≤${t.good}　三級 ≤${t.normal}</span>`;
+            }
+        },
+        grid:{left:60,right:30,top:30,bottom:40},
+        xAxis:{type:'category',data:machines.map(m=>m.name),axisLine:{lineStyle:{color:chartGridColor}},axisLabel:{color:chartTextColor,fontSize:12}},
+        yAxis:{type:'value',name:'kW/(m³/min)',nameTextStyle:{color:chartTextColor,fontSize:11,padding:[0,0,0,50]},min:Y_MIN,max:Y_MAX,splitLine:{lineStyle:{color:chartGridColor}},axisLabel:{color:chartTextColor}},
+        series:[
+            {type:'bar',barWidth:'32%',
+             data:machines.map(m=>({value:m.specificPower,itemStyle:{color:gradeOf(m).color,borderRadius:[4,4,0,0]}})),
+             label:{show:true,position:'top',color:'#fff',fontSize:13,fontWeight:'bold',formatter:'{c}'},
+             emphasis:{focus:'self'},
+             blur:{itemStyle:{opacity:0.3}},
+             z:10,
+             markArea:{silent:true,z:1,data:[
+                 [{yAxis:Y_MIN,  itemStyle:{color:'rgba(0,176,255,0.18)'}},  {yAxis:5.9}],
+                 [{yAxis:5.9,    itemStyle:{color:'rgba(92,199,54,0.18)'}},   {yAxis:6.4}],
+                 [{yAxis:6.4,    itemStyle:{color:'rgba(241,222,117,0.18)'}}, {yAxis:7.1}],
+                 [{yAxis:7.1,    itemStyle:{color:'rgba(255,45,85,0.18)'}},   {yAxis:Y_MAX}]
+             ]}}
+        ]
+    });
+    if(!allCharts.includes(c)) allCharts.push(c);
+}
+
+// ── 機台卡片（水平進度條代替賽車盤）──
+function renderMachineCards(){
+    const grid=document.getElementById('machineGrid');
+    grid.innerHTML=machines.map(m=>{
+        const g=gradeOf(m), t=g.thresholds;
+        const GMIN=4, GMAX=9, span=GMAX-GMIN;
+        const pctE=((t.excellent-GMIN)/span*100).toFixed(1);
+        const pctG=((t.good-t.excellent)/span*100).toFixed(1);
+        const pctN=((t.normal-t.good)/span*100).toFixed(1);
+        const pctF=((GMAX-t.normal)/span*100).toFixed(1);
+        const markerLeft=(((m.specificPower-GMIN)/span)*100).toFixed(1);
+        return `
+        <div class="machine-card ${g.key==='fail'?'priority':''}" onclick="openMachineDetail(${m.id})">
+            <div class="machine-card-header">
+                <div class="machine-name"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><g clip-path="url(#clip_fan_${m.id})"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.99783 8.7276C6.04322 8.7276 5.26685 7.95101 5.26685 6.99613C5.26685 6.0415 6.04322 5.26465 6.99783 5.26465C7.95244 5.26465 8.72907 6.0415 8.72907 6.99613C8.72907 7.95101 7.95244 8.7276 6.99783 8.7276ZM12.5162 4.65773C12.0963 4.65773 10.4963 4.99474 9.16536 5.3829C8.79818 4.89058 8.26894 4.528 7.65594 4.37398C9.07976 2.31412 10.2319 2.12643 10.2319 1.48375C10.2319 0.667479 8.98477 0 7.44403 0C5.89964 0 4.6564 0.652338 4.66006 1.4801C4.66006 1.89985 4.9967 3.49819 5.38397 4.82871C4.8944 5.19443 4.53323 5.72095 4.37821 6.33048C2.31346 4.90442 2.12661 3.74984 1.48333 3.74984C0.667288 3.74984 0 4.99708 0 6.53826C0 8.07944 0.667288 9.34209 1.47967 9.3233C1.89878 9.3233 3.49406 8.98734 4.82342 8.60022C5.19138 9.09802 5.72427 9.46426 6.34198 9.61905C4.91737 11.6818 3.7639 11.8692 3.7639 12.5124C3.7639 13.3287 5.01105 13.9962 6.55153 13.9962C8.09645 13.9962 9.33942 13.3287 9.33577 12.5163C9.33577 12.0961 8.9986 10.4954 8.61081 9.16406C9.10377 8.79652 9.46651 8.26609 9.62022 7.65238C11.6824 9.0774 11.8695 10.2312 12.5125 10.2312C13.3285 10.2312 14 8.9876 14 7.44642C14 5.90524 13.3325 4.65773 12.5162 4.65773Z" fill="white"/></g><defs><clipPath id="clip_fan_${m.id}"><rect width="14" height="14" fill="white"/></clipPath></defs></svg>${m.name}</div>
+                <span class="status-chip ${g.chip}">${g.label}</span>
+            </div>
+            <div class="mini-bar-wrap">
+                <div class="mini-bar-val">${m.specificPower}<span class="mini-bar-unit">kW/(m³/min)</span></div>
+                <div class="mini-bar-track">
+                    <div class="mini-bar-zone" style="left:0;width:${pctE}%;background:rgba(0,176,255,0.25);border-radius:5px 0 0 5px;"></div>
+                    <div class="mini-bar-zone" style="left:${pctE}%;width:${pctG}%;background:rgba(92,199,54,0.25);"></div>
+                    <div class="mini-bar-zone" style="left:${parseFloat(pctE)+parseFloat(pctG)}%;width:${pctN}%;background:rgba(241,222,117,0.25);"></div>
+                    <div class="mini-bar-zone" style="left:${parseFloat(pctE)+parseFloat(pctG)+parseFloat(pctN)}%;width:${pctF}%;background:rgba(255,45,85,0.25);border-radius:0 5px 5px 0;"></div>
+                    <div class="mini-bar-marker" style="left:${markerLeft}%;background:${g.color};"></div>
+                </div>
+                <div class="mini-bar-ticks">
+                    <span class="mini-bar-tick">${GMIN}</span>
+                    <span class="mini-bar-tick" style="color:#00B0FF;">${t.excellent}</span>
+                    <span class="mini-bar-tick" style="color:#5CC736;">${t.good}</span>
+                    <span class="mini-bar-tick" style="color:#F1DE75;">${t.normal}</span>
+                    <span class="mini-bar-tick">${GMAX}</span>
+                </div>
+            </div>
+            <div class="machine-metrics">
+                <div class="spec-item"><i class="fa-solid fa-bolt"></i>${m.ratedPower} kW</div>
+                <div class="spec-item"><i class="fa-solid fa-gauge"></i>${m.ratedPressure} MPa</div>
+                <div class="spec-item"><i class="fa-solid fa-wind"></i>${m.flowRate} Nm³/h</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── 單機詳情 Modal ──
+let detailChartInst = null;
+function openMachineDetail(id){
+    const m=machines.find(x=>x.id===id), g=gradeOf(m);
+    document.getElementById('modalTitle').innerHTML=`
+        <svg width="20" height="20" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;"><g clip-path="url(#clip_modal_fan)"><path fill-rule="evenodd" clip-rule="evenodd" d="M6.99783 8.7276C6.04322 8.7276 5.26685 7.95101 5.26685 6.99613C5.26685 6.0415 6.04322 5.26465 6.99783 5.26465C7.95244 5.26465 8.72907 6.0415 8.72907 6.99613C8.72907 7.95101 7.95244 8.7276 6.99783 8.7276ZM12.5162 4.65773C12.0963 4.65773 10.4963 4.99474 9.16536 5.3829C8.79818 4.89058 8.26894 4.528 7.65594 4.37398C9.07976 2.31412 10.2319 2.12643 10.2319 1.48375C10.2319 0.667479 8.98477 0 7.44403 0C5.89964 0 4.6564 0.652338 4.66006 1.4801C4.66006 1.89985 4.9967 3.49819 5.38397 4.82871C4.8944 5.19443 4.53323 5.72095 4.37821 6.33048C2.31346 4.90442 2.12661 3.74984 1.48333 3.74984C0.667288 3.74984 0 4.99708 0 6.53826C0 8.07944 0.667288 9.34209 1.47967 9.3233C1.89878 9.3233 3.49406 8.98734 4.82342 8.60022C5.19138 9.09802 5.72427 9.46426 6.34198 9.61905C4.91737 11.6818 3.7639 11.8692 3.7639 12.5124C3.7639 13.3287 5.01105 13.9962 6.55153 13.9962C8.09645 13.9962 9.33942 13.3287 9.33577 12.5163C9.33577 12.0961 8.9986 10.4954 8.61081 9.16406C9.10377 8.79652 9.46651 8.26609 9.62022 7.65238C11.6824 9.0774 11.8695 10.2312 12.5125 10.2312C13.3285 10.2312 14 8.9876 14 7.44642C14 5.90524 13.3325 4.65773 12.5162 4.65773Z" fill="white"/></g><defs><clipPath id="clip_modal_fan"><rect width="14" height="14" fill="white"/></clipPath></defs></svg>
+        ${m.name}
+        <span class="status-chip ${g.chip}">${g.label}</span>`;
+    document.getElementById('modalSubtitle').textContent=`${m.ratedPower} kW · ${m.ratedPressure} MPa · ${m.type}`;
+    document.getElementById('detailOverlay').classList.add('open');
+    setTimeout(()=>{
+        if(detailChartInst){ detailChartInst.dispose(); detailChartInst=null; }
+        detailChartInst=renderTrend(m);
+    },50);
+}
+function closeModal(){
+    document.getElementById('detailOverlay').classList.remove('open');
+}
+function renderTrend(m){
+    let c=echarts.getInstanceByDom(document.getElementById('detailTrend'));
+    if(c) c.dispose();
+    c=echarts.init(document.getElementById('detailTrend'));
+    const hours=Array.from({length:13},(_,i)=>`${i*2}h`);
+    const data=hours.map((_,i)=>+(m.specificPower+Math.sin(i/3)*0.4+(Math.random()-0.5)*0.3).toFixed(2));
+    const g=gradeOf(m), t=g.thresholds;
+    c.setOption({
+        tooltip:{trigger:'axis',backgroundColor:'rgba(33,40,49,0.95)',borderColor:'rgba(255,255,255,0.5)',borderWidth:0.5,textStyle:{color:'#fff'}},
+        legend:{top:10,left:'center',data:[{name:'氣電比',icon:'circle'},{name:'優良（一級）',icon:'circle'},{name:'良好（二級）',icon:'circle'},{name:'普通（三級）',icon:'circle'}],textStyle:{color:'rgba(255,255,255,0.70)',fontSize:13},itemWidth:10,itemHeight:10,itemGap:20},
+        grid:{left:35,right:50,top:52,bottom:32},
+        xAxis:{type:'category',data:hours,axisLine:{show:false},axisTick:{show:false},axisLabel:{color:'rgba(255,255,255,0.70)',fontSize:11}},
+        yAxis:{type:'value',name:'kW/(m³/min)',nameTextStyle:{color:'rgba(255,255,255,0.50)',fontSize:10},min:Math.floor(Math.min(...data,t.excellent)-1),max:Math.ceil(Math.max(...data,t.normal)+1),splitLine:{lineStyle:{color:'rgba(255,255,255,0.05)'}},axisLabel:{color:'rgba(255,255,255,0.70)'}},
+        series:[
+            {type:'line',data,smooth:true,symbol:'none',name:'氣電比',
+                itemStyle:{color:'#00B0FF'},
+                areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#00B0FF55'},{offset:1,color:'#00B0FF00'}])},
+                markArea:{silent:true,data:[
+                    [{xAxis:hours[0],yAxis:-999,       itemStyle:{color:'rgba(0,176,255,0.10)'}},   {xAxis:hours[hours.length-1],yAxis:t.excellent}],
+                    [{xAxis:hours[0],yAxis:t.excellent,itemStyle:{color:'rgba(92,199,54,0.10)'}},   {xAxis:hours[hours.length-1],yAxis:t.good}],
+                    [{xAxis:hours[0],yAxis:t.good,     itemStyle:{color:'rgba(241,222,117,0.10)'}}, {xAxis:hours[hours.length-1],yAxis:t.normal}],
+                    [{xAxis:hours[0],yAxis:t.normal,   itemStyle:{color:'rgba(255,45,85,0.10)'}},   {xAxis:hours[hours.length-1],yAxis:999}]
+                ]}
+            },
+            {type:'line',name:'優良（一級）',data:hours.map(()=>t.excellent),symbol:'none',silent:true,
+                lineStyle:{color:'#00B0FF',type:'dashed',width:1},itemStyle:{color:'#00B0FF'},
+                endLabel:{show:true,color:'#00B0FF',fontSize:11,formatter:p=>`${p.value}`},
+                tooltip:{show:false}},
+            {type:'line',name:'良好（二級）',data:hours.map(()=>t.good),symbol:'none',silent:true,
+                lineStyle:{color:'#5CC736',type:'dashed',width:1},itemStyle:{color:'#5CC736'},
+                endLabel:{show:true,color:'#5CC736',fontSize:11,formatter:p=>`${p.value}`},
+                tooltip:{show:false}},
+            {type:'line',name:'普通（三級）',data:hours.map(()=>t.normal),symbol:'none',silent:true,
+                lineStyle:{color:'#F1DE75',type:'dashed',width:1},itemStyle:{color:'#F1DE75'},
+                endLabel:{show:true,color:'#F1DE75',fontSize:11,formatter:p=>`${p.value}`},
+                tooltip:{show:false}}
+        ]
+    });
+    return c;
+}
+
+// ── GB 閾值設定 ──
+function openThresholdSettings(){
+    const s=document.getElementById('offsetSlider');
+    s.value=THRESHOLD_OFFSET_PCT;
+    document.getElementById('offsetValueDisplay').textContent=(THRESHOLD_OFFSET_PCT>0?'+':'')+THRESHOLD_OFFSET_PCT+'%';
+    renderPreviewTable(THRESHOLD_OFFSET_PCT);
+    document.getElementById('thresholdOverlay').classList.add('open');
+}
+function closeThresholdSettings(){ document.getElementById('thresholdOverlay').classList.remove('open'); }
+function applyThresholdOffset(){
+    THRESHOLD_OFFSET_PCT=parseInt(document.getElementById('offsetSlider').value,10)||0;
+    updateCustomPill(); reRenderAll(); closeThresholdSettings();
+}
+function resetThresholdOffset(){
+    document.getElementById('offsetSlider').value=0;
+    document.getElementById('offsetValueDisplay').textContent='+0%';
+    renderPreviewTable(0);
+}
+function updateCustomPill(){
+    const pill=document.getElementById('customPill');
+    const btn=document.getElementById('thresholdSettingsBtn');
+    if(THRESHOLD_OFFSET_PCT===0){
+        pill.classList.remove('visible');
+        btn.style.borderColor='';
+        btn.style.color='';
+    } else {
+        pill.classList.add('visible');
+        const sign=THRESHOLD_OFFSET_PCT>0?'+':'';
+        document.getElementById('customPillValue').textContent=`${sign}${THRESHOLD_OFFSET_PCT}%`;
+    }
+}
+function uniqueSpecs(){
+    const seen=new Set(), specs=[];
+    machines.forEach(m=>{
+        const key=`${m.ratedPower}_${m.ratedPressure}`;
+        if(!seen.has(key)){seen.add(key);specs.push({kw:m.ratedPower,mpa:m.ratedPressure});}
+    });
+    return specs;
+}
+function renderPreviewTable(previewOffset){
+    const factor=1+previewOffset/100, specs=uniqueSpecs();
+    const rows=specs.map(s=>{
+        const raw=getRawGBThresholds(s.kw,s.mpa);
+        return `<tr>
+            <td>${s.kw} kW / ${s.mpa} MPa</td>
+            <td class="gb-col">${raw.excellent}</td><td class="custom-col">${(raw.excellent*factor).toFixed(2)}</td>
+            <td class="gb-col">${raw.good}</td><td class="custom-col">${(raw.good*factor).toFixed(2)}</td>
+            <td class="gb-col">${raw.normal}</td><td class="custom-col">${(raw.normal*factor).toFixed(2)}</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('previewTable').innerHTML=`
+        <thead><tr><th rowspan="2">機型</th><th colspan="2">一級（優良）</th><th colspan="2">二級（良好）</th><th colspan="2">三級（普通）</th></tr>
+        <tr><th class="gb-col">國標</th><th class="custom-col">自訂</th><th class="gb-col">國標</th><th class="custom-col">自訂</th><th class="gb-col">國標</th><th class="custom-col">自訂</th></tr></thead>
+        <tbody>${rows}</tbody>`;
+}
+function reRenderAll(){
+    renderComplianceChart(); renderSystemKPI();
+    renderOutputComparison(); renderComparisonChart(); renderMachineCards();
+}
+
+// ── 時鐘 ──
+function updateClock(){
+    const n=new Date(),pad=x=>String(x).padStart(2,'0');
+    const el=document.getElementById('realtime-clock');
+    if(el) el.textContent=`${n.getFullYear()}/${pad(n.getMonth()+1)}/${pad(n.getDate())} ${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
+}
+updateClock(); setInterval(updateClock,1000);
+
+// ── 全螢幕 ──
+document.getElementById('btn-fullscreen').addEventListener('click',()=>{
+    if(!document.fullscreenElement) document.documentElement.requestFullscreen().then(()=>document.body.classList.add('is-fullscreen'));
+    else document.exitFullscreen();
+});
+document.addEventListener('fullscreenchange',()=>{
+    if(!document.fullscreenElement) document.body.classList.remove('is-fullscreen');
+    setTimeout(()=>allCharts.forEach(c=>c.resize()),350);
+});
+
+// ── Sidebar ──
+const sidebar = document.getElementById('mainSidebar');
+const mainPinBtn = document.getElementById('sidebarPinBtn');
+const panels = document.querySelectorAll('.submenu-panel');
+const menuItems = document.querySelectorAll('.menu-item[data-target]');
+let isMainSidebarPinned = false;
+let globalHideTimeout = null;
+
+mainPinBtn.addEventListener('click', () => {
+    isMainSidebarPinned = !isMainSidebarPinned;
+    if (isMainSidebarPinned) {
+        sidebar.classList.remove('mini');
+        mainPinBtn.classList.add('active');
+    } else {
+        sidebar.classList.add('mini');
+        mainPinBtn.classList.remove('active');
+        panels.forEach(p => p.classList.remove('open'));
+    }
+});
+sidebar.addEventListener('mouseenter', () => {
+    clearTimeout(globalHideTimeout);
+    if (!isMainSidebarPinned) sidebar.classList.remove('mini');
+});
+sidebar.addEventListener('mouseleave', () => {
+    clearTimeout(globalHideTimeout);
+    globalHideTimeout = setTimeout(() => {
+        const hasPinnedPanel = Array.from(panels).some(p => p.dataset.pinned === 'true');
+        if (!isMainSidebarPinned) {
+            if (!hasPinnedPanel) {
+                sidebar.classList.add('mini');
+                panels.forEach(p => p.classList.remove('open'));
+            } else {
+                sidebar.classList.remove('mini');
+                panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+            }
+        } else {
+            panels.forEach(p => { if (p.dataset.pinned !== 'true') p.classList.remove('open'); });
+        }
+        menuItems.forEach(item => { if(item.dataset.target !== 'panel-efficiency') item.classList.remove('active'); });
+    }, 1000);
+});
+menuItems.forEach(item => {
+    item.addEventListener('mouseenter', () => {
+        const targetId = item.dataset.target;
+        if(targetId === 'dashboard') return;
+        menuItems.forEach(m => m.classList.remove('active'));
+        item.classList.add('active');
+        panels.forEach(p => {
+            if(p.id === targetId) p.classList.add('open');
+            else if(p.dataset.pinned !== 'true') p.classList.remove('open');
+        });
+    });
+});
+panels.forEach(panel => {
+    const pinBtn = panel.querySelector('.pin-btn');
+    pinBtn.addEventListener('click', () => {
+        const isPinned = panel.dataset.pinned === 'true';
+        panel.dataset.pinned = !isPinned;
+        pinBtn.classList.toggle('active', !isPinned);
+    });
+});
+
+// ── 初始化 ──
+window.addEventListener('load',()=>{
+    reRenderAll(); updateCustomPill();
+    document.getElementById('decayThreshold').addEventListener('input',renderOutputComparison);
+    document.getElementById('offsetSlider').addEventListener('input',e=>{
+        const v=parseInt(e.target.value,10);
+        document.getElementById('offsetValueDisplay').textContent=(v>0?'+':'')+v+'%';
+        renderPreviewTable(v);
+    });
+});
+window.addEventListener('resize',()=>allCharts.forEach(c=>c.resize()));
+</script>
+</body>
+</html>
